@@ -1,0 +1,5 @@
+C:\code\USGDFramework\USGDFramework\USGDFramework\bin\Release\USGDFramework.dll
+C:\code\USGDFramework\USGDFramework\USGDFramework\bin\Release\USGDFramework.pdb
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Release\USGDFramework.csprojResolveAssemblyReference.cache
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Release\USGDFramework.dll
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Release\USGDFramework.pdb
