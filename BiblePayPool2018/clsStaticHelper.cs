@@ -328,7 +328,7 @@ namespace BiblePayPool2018
                     oParams[3] = Conversion.Val(sPrevBlockTime).ToString();
                     oParams[4] = Conversion.Val(sPrevHeight).ToString();
                     clsStaticHelper.InitializeNewBitnet(sNetworkID);
-                    dynamic oOut = clsStaticHelper.mBitnetNewClient.InvokeMethod("run", oParams);
+                    dynamic oOut = clsStaticHelper.mBitnetNewClient.InvokeMethod("exec", oParams);
                     string sBibleHash = "";
                     sBibleHash = oOut["result"]["BibleHash"].ToString();
 
@@ -440,7 +440,7 @@ namespace BiblePayPool2018
                 oParams[0] = "subsidy";
                 oParams[1] = Strings.Trim(nHeight.ToString());
                 InitializeNewBitnet(sNetworkID);
-                dynamic oOut = mBitnetNewClient.InvokeMethod("run", oParams);
+                dynamic oOut = mBitnetNewClient.InvokeMethod("exec", oParams);
                 string sOut = "";
                 sOut = oOut["result"][sFieldName].ToString();
                 return sOut;
