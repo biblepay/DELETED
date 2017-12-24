@@ -22,7 +22,7 @@ namespace BiblePayPool2018
         {
 
             Section TicketSearch = Sys.RenderSection("Ticket Search", "Ticket", 1, this, SystemObject.SectionMode.Search);
-            GodEdit geBtnB = TicketSearch.AddButton("btnSearch", "Search");
+            Edit geBtnB = TicketSearch.AddButton("btnSearch", "Search");
             return TicketSearch.Render(this, true);
         }
        
@@ -37,7 +37,7 @@ namespace BiblePayPool2018
         public WebReply TicketAdd()
         {
             Section TicketAdd = Sys.RenderSection("Ticket View", "Ticket", 1, this, SystemObject.SectionMode.Edit);
-            GodEdit geBtnB = TicketAdd.AddButton("btnSave", "Save");
+            Edit geBtnB = TicketAdd.AddButton("btnSave", "Save");
             WebReply ta = TicketAdd.Render(this, true);
             return ta;
         }
@@ -46,7 +46,7 @@ namespace BiblePayPool2018
         {
    
             Section TicketAdd = Sys.RenderSection("Ticket View", "Ticket", 1, this, SystemObject.SectionMode.Add);
-            GodEdit geBtnB = TicketAdd.AddButton("btnSave", "Save");
+            Edit geBtnB = TicketAdd.AddButton("btnSave", "Save");
             WebReply ta = TicketAdd.Render(this, true);
             return ta;
         }

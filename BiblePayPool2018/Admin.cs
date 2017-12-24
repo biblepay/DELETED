@@ -16,7 +16,7 @@ namespace BiblePayPool2018
         public WebReply MainMenu()
         {
             Section s1 = new Section("Admin", 1, Sys, this);
-            GodEdit geLink1 = new GodEdit("Admin", GodEdit.GEType.Anchor, "LinkSettings", "Settings", Sys);
+            Edit geLink1 = new Edit("Admin", Edit.GEType.Anchor, "LinkSettings", "Settings", Sys);
             s1.AddControl(geLink1);
             return s1.Render(this, false);
         }
@@ -35,13 +35,13 @@ namespace BiblePayPool2018
         public WebReply LinkSettings_Click()
         {
             Section s1 = new Section("SettingsEdit", 2, Sys, this);
-            GodEdit ddContext = new GodEdit("SettingsEdit", "Context", Sys);
-            ddContext.Type = GodEdit.GEType.Lookup;
+            Edit ddContext = new Edit("SettingsEdit", "Context", Sys);
+            ddContext.Type = Edit.GEType.Lookup;
             ddContext.CaptionText = "Context:";
             ddContext.LookupValues = Sys.BindColumn("Setting", "Context", "");
             s1.AddControl(ddContext);
-            GodEdit ddName = new GodEdit("SettingsEdit", "Name", Sys);
-            ddName.Type = GodEdit.GEType.Lookup;
+            Edit ddName = new Edit("SettingsEdit", "Name", Sys);
+            ddName.Type = Edit.GEType.Lookup;
             ddName.CaptionText = "Name:";
             string sSelectedContext = Sys.GetObjectValue("SettingsEdit", "Context");
             string sWhere = "Context='" + sSelectedContext + "'";
@@ -57,7 +57,7 @@ namespace BiblePayPool2018
                  sValue = dt1.Rows[0][0].ToString();
             }
 
-            GodEdit txtValue = new GodEdit("SettingsEdit", "Value", Sys);
+            Edit txtValue = new Edit("SettingsEdit", "Value", Sys);
             txtValue.CaptionText = "Value:";
             txtValue.TextBoxValue = sValue;
             s1.AddControl(txtValue);

@@ -45,24 +45,31 @@ namespace BiblePayPool2018
          
         }
 
-        public GodEdit AddButton(string sButtonName, string sButtonCaption)
+        public Edit AddButton(string sButtonName, string sButtonCaption)
         {
-            GodEdit b = new GodEdit(Name, GodEdit.GEType.Button, sButtonName, sButtonCaption, Sys);
+            Edit b = new Edit(Name, Edit.GEType.Button, sButtonName, sButtonCaption, Sys);
             this.AddControl(b);
             return b;
         }
 
-        public GodEdit AddTextbox(string sTextBoxName, string sCaption)
+        public Edit AddTextbox(string sTextBoxName, string sCaption)
         {
-            GodEdit geText = new GodEdit(Name, sTextBoxName, Sys);
+            Edit geText = new Edit(Name, sTextBoxName, Sys);
             geText.CaptionText = sCaption;
             this.AddControl(geText);
             return geText;
         }
 
+        public void AddBlank()
+        {
+            Edit b1 = new Edit(this.Name,Edit.GEType.HTML,Guid.NewGuid().ToString(), "",Sys);
+            this.AddControl(b1);
+            
+        }
+
         public void AddControl(Object o)
         {
-            GodEdit ge=(GodEdit)o;
+            Edit ge=(Edit)o;
 
             if (_controls.ContainsKey(ge.Name))
             {
@@ -200,7 +207,7 @@ namespace BiblePayPool2018
             {
                 foreach (KeyValuePair<string, object> entry in _controls)
                 {
-                    GodEdit ge = (GodEdit)entry.Value;
+                    Edit ge = (Edit)entry.Value;
                     if (iCurCol == 0)
                     {
                         sOut += "<TR>";
@@ -246,8 +253,6 @@ namespace BiblePayPool2018
             sOut += "</table></div><p>";
             WebReply wr1 = new WebReply();
 
-            string sIdentifier = "USGDrag";
-            string sEvent = "alert('test');";
             string sJavaEventAfterDrop = "  var sOut=''; $(this).closest('table').find('span').each(function (index) "
                           + "        {        var sUSGDID = $(this)[0].getAttribute('usgdid'); "
                           + "                 var sUSGDValue = $(this)[0].getAttribute('usgdvalue'); "
@@ -290,7 +295,7 @@ namespace BiblePayPool2018
 
     
 
-    public class GodEdit
+    public class Edit
     {
 
         public enum GEType
@@ -322,7 +327,7 @@ namespace BiblePayPool2018
         public string Name { get; set; }
         public string CaptionText { get; set; }
         public string CaptionText2 { get; set; }
-
+        public string CaptionWidthCSS { get; set; }
         public XmlDocument Nodes { get; set; }
 
         public string TextBoxValue { get; set; }
@@ -356,6 +361,7 @@ namespace BiblePayPool2018
         public string ColSpan2 { get; set; }
         public string TextBoxStyle { get; set; }
         public string TextBoxAttribute { get; set; }
+        public string sAltGuid { get; set; }
         private int iCounter = 0;
         private string sCumulativeHTML = "";
         public string TdWidth { get; set; }
@@ -375,7 +381,7 @@ namespace BiblePayPool2018
             return listLV;
         }
 
-        public GodEdit(string sSection, GEType ControlType, SystemObject sys)
+        public Edit(string sSection, GEType ControlType, SystemObject sys)
         {
             Type = ControlType;
             Sys = sys;
@@ -383,7 +389,7 @@ namespace BiblePayPool2018
             Section = sSection;
         }
         
-        public GodEdit(string sSection, string ControlName, SystemObject sys)
+        public Edit(string sSection, string ControlName, SystemObject sys)
         {
             Name = ControlName;
             Type = GEType.Text;
@@ -392,7 +398,7 @@ namespace BiblePayPool2018
             TextBoxValue = Sys.GetObjectValue(sSection,Name);
         }
 
-        public GodEdit(string sSection, GEType ControlType, string ControlName, string ControlCaptionText, SystemObject sys)
+        public Edit(string sSection, GEType ControlType, string ControlName, string ControlCaptionText, SystemObject sys)
         {
             Type = ControlType;
             Section = sSection;
@@ -509,9 +515,6 @@ namespace BiblePayPool2018
             }
         }
 
-
-
-
         public WebReply Render(object caller)
         {
             string sFlyout = (ErrorText ?? String.Empty).ToString().Length > 0 ? "example-right" : String.Empty;
@@ -562,7 +565,7 @@ namespace BiblePayPool2018
             }
             else if (Type==GEType.Label)
             {
-                string sOut = "<td><span id='" + Name + "'>" + CaptionText + "</span></td>";
+                string sOut = "<td " + CaptionWidthCSS + "><span id='" + Name + "'>" + CaptionText + "</span></td>";
                 if (("" + TextBoxValue).Length > 0 )
                 {
                     sOut += "<td>" + TextBoxValue + "</td>";
@@ -774,8 +777,9 @@ namespace BiblePayPool2018
             }
             else if (Type==GEType.Button)
             {
+                // 11-3-2017
                 string myClass = caller.GetType().ToString();
-                StackTrace stackTrace = new StackTrace();           // get call stack
+                StackTrace stackTrace = new StackTrace();           
                 StackFrame[] stackFrames = stackTrace.GetFrames();  // get method calls (frames)
                 StackFrame callingFrame = stackFrames[1];
                 MethodInfo method = (MethodInfo)callingFrame.GetMethod();
@@ -785,10 +789,9 @@ namespace BiblePayPool2018
                 string sOut = "";
 
                 if (!MaskBeginTD) sOut += "<td colspan='" + ColSpan + "'>";
-
                     sOut += "<input class=roundbutton type=button name='" + Name + "' id='" + Name + "' value='"
-                    + CaptionText + "' onclick=\"" + sJavascriptSuffix + "postdiv(this,'buttonevent','" + myClass + "','" + sMyMethod + "','');\"  />";
-                if (!MaskEndTD)                 sOut += "</td>";
+                    + CaptionText + "' onclick=\"" + sJavascriptSuffix + "postdiv(this,'buttonevent','" + myClass + "','" + sMyMethod + "','" + sAltGuid + "');\"  />";
+                if (!MaskEndTD)    sOut += "</td>";
 
                 return new WebReply(sOut, "", Section,false);
 
@@ -815,11 +818,7 @@ namespace BiblePayPool2018
                 sOut += "&nbsp;&nbsp;&nbsp;&nbsp;<input class=roundbutton type=button name='" + Name2 + "' id='" + Name2 + "' value='"
                 + CaptionText2 + "' onclick=\"" + sJavascriptSuffix + "postdiv(this,'buttonevent','" + myClass + "','" + Method + "','');\"  />";
                 if (!MaskEndTD) sOut += "</td>";
-
-
-
                 return new WebReply(sOut, "", Section, false);
-
             }
 
             else if (Type==GEType.IFrame)
@@ -852,7 +851,6 @@ namespace BiblePayPool2018
                 return new WebReply(sOut, "", Section, false);
 
             }
-
             else if (Type==GEType.Anchor)
             {
                 string myClass = caller.GetType().ToString();
@@ -894,12 +892,8 @@ namespace BiblePayPool2018
                      string sBlankSelected = "";
                      if (TextBoxValue.Trim() == "") sBlankSelected = "SELECTED";
                      sRows += "<option " + sBlankSelected + " classid='" + "000" + "' value='" + "" + "'>" + "" + "</option>";
-                   
-
-
                      foreach (SystemObject.LookupValue lv in LookupValues)
                      {
-                         //Select the Selected TextBoxValue
                          string sSelected = String.Empty;
                          if (lv.Value == TextBoxValue)
                          {

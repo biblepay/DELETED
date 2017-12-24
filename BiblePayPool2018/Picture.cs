@@ -20,7 +20,7 @@ namespace BiblePayPool2018
         public WebReply DocumentSearch()
         {
             Section Search = Sys.RenderSection("Picture Search", "Picture", 1, this, SystemObject.SectionMode.Search);
-            GodEdit geBtnB = Search.AddButton("btnSearch", "Search");
+            Edit geBtnB = Search.AddButton("btnSearch", "Search");
             return Search.Render(this, true);
         }
 
@@ -33,7 +33,7 @@ namespace BiblePayPool2018
         public WebReply PictureAdd()
         {
             Section Add = Sys.RenderSection("Picture Add", "Picture", 1, this, SystemObject.SectionMode.Edit);
-            GodEdit ctlUpload = new GodEdit("Picture Add", GodEdit.GEType.UploadControl, "btnSave", "Save", Sys);
+            Edit ctlUpload = new Edit("Picture Add", Edit.GEType.UploadControl, "btnSave", "Save", Sys);
             ctlUpload.Id = this.ViewGuid;
             ctlUpload.ParentGuid = this.ParentID;
             ctlUpload.ParentType = "Picture";
@@ -102,7 +102,7 @@ namespace BiblePayPool2018
             html += "</DIV>";
        
             Section s = new Section("Picture Gallery", 1, Sys, this);
-            GodEdit g = new GodEdit("PictureGallery", GodEdit.GEType.HTML, Sys);
+            Edit g = new Edit("PictureGallery", Edit.GEType.HTML, Sys);
             g.Name = "pg1";
             g.HTML = html;
             s.AddControl(g);
@@ -125,7 +125,7 @@ namespace BiblePayPool2018
         public WebReply btnLightbox_Click()
         {
             Section s = new Section("Lightbox", 1, Sys, this);
-            GodEdit g = new GodEdit("Lightbox", GodEdit.GEType.Lightbox, Sys);
+            Edit g = new Edit("Lightbox", Edit.GEType.Lightbox, Sys);
             g.Name = "Lightbox";
             g.CaptionText = "Open";
             g.URL = "images/BiblePay.png";

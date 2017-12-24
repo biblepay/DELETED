@@ -162,6 +162,13 @@ h1
           background-position:-456px 0;
           background-image:url("/images/glyphicons-halflings.png");
       }
+      
+      .icon-print
+      {
+	      background-position:-96px -48px;
+	      background-image:url("/images/glyphicons-halflings.png");
+
+      }
                                
                                                                                                                                                            
       .icon-plus

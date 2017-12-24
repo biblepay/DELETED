@@ -8,6 +8,7 @@
     <IISExpressUseClassicPipelineMode />
     <ProjectView>ShowAllFiles</ProjectView>
     <UseGlobalApplicationHostFile />
+    <Use64BitIISExpress />
   </PropertyGroup>
   <ProjectExtensions>
     <VisualStudio>

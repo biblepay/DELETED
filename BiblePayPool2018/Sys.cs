@@ -68,7 +68,8 @@ namespace BiblePayPool2018
     public class USGDGui
     {
         public SystemObject Sys = null;
-        public long Version = 1025;
+        // This is also the Gui Version
+        public long Version = 2030;
 
         public string ViewGuid 
         { 
@@ -278,8 +279,8 @@ namespace BiblePayPool2018
         public Dictionary<String, USGDDictionary> dictMasterDictionary = new Dictionary<String, USGDDictionary>();
         public Dictionary<String, USGDDictionaryParent> dictDictionaryParent = new Dictionary<String, USGDDictionaryParent>();
         public HttpContext CurrentHTTPContext { get; set; }
+        public string IP { get; set; }
         public System.Web.SessionState.HttpSessionState CurrentHttpSessionState { get; set; }
-        
         public List<Breadcrumb> _breadcrumb = new List<Breadcrumb>();
         public long iCount = 0;
         private string ID = null;
@@ -717,9 +718,9 @@ namespace BiblePayPool2018
         {
             try
             {
-                InitializeNewBitnet(sNetworkID);
+                BitnetClient bc = InitRPC(sNetworkID);
                 object oValid = null;
-                oValid = mBitnetNewClient.ValidateAddress(sAddress);
+                oValid = bc.ValidateAddress(sAddress);
                 string sValid = null;
                 sValid = oValid.ToString();
                 if (!sValid.Contains("true"))
@@ -732,19 +733,47 @@ namespace BiblePayPool2018
             }
         }
 
-
-        public bool GetUserBalances(ref double dBalance, ref double dImmature)
+        public string SqlToCSV(string sql)
         {
-            string sql = "Select isnull(Balance" + NetworkID + ",0) as bal1 From Users with (nolock) where id='" + this.UserGuid.ToString() + "' and deleted=0";
-            dBalance =_data.GetScalarDouble(sql, "bal1");
-            sql = "Select isnull(sum(amount),0) As Immature from transactionlog where updated > getdate()-1 And userid='" + UserGuid.ToString() + "'"
-                    + " And networkid = '" + NetworkID + "' and transactiontype='MINING_CREDIT'";
-            dImmature = _data.GetScalarDouble(sql, "Immature");
-            return true;
+            DataTable dt = _data.GetDataTable(sql);
+            string data = "";
+            for (int rows = 0; rows < dt.Rows.Count; rows++)
+            {
+                string sRow = "";
+                for (int cols = 0; cols < dt.Columns.Count;cols++)
+                {
+                    string colName = dt.Columns[cols].Caption;
+                    string Value = dt.Rows[rows][cols].ToString();
+                    colName = colName.Replace(",", "");
+                    Value = Value.Replace(",", "");
+                    if (rows == 0)
+                    {
+                        sRow += "\"" + colName + "\",";
+                    }
+                    else
+                    {
+                        sRow += "\"" + Value + "\",";
+                    }
+                    
+
+                }
+                if (sRow.Length > 0) sRow = sRow.Substring(0, sRow.Length - 1);
+                data += sRow + "\r\n";
+               
+            }
+            string sFileName = Guid.NewGuid().ToString() + ".csv";
+            string sSan = clsStaticHelper.AppSetting("SAN", "SAN_NOT_SET");
+            string sTargetPath = sSan + sFileName;
+            System.IO.StreamWriter sw = new System.IO.StreamWriter(sTargetPath, true);
+            sw.WriteLine(data);
+            sw.Close();
+            string sURL = clsStaticHelper.AppSetting("WebSite", "http://myurl.biblepay.org/") + "SAN/" + sFileName;
+            return sURL;
         }
 
         
-        public bool SendEmail(string strTo, string strSubject, string strBody, bool blnHTML = true)
+        
+        public bool SendEmail(string strTo, string strSubject, string strBody, bool blnHTML = true, bool bCCBiblepay = false)
         {
             bool isSend = false;
             System.Net.Mail.MailMessage mailmsg = new System.Net.Mail.MailMessage();
@@ -760,7 +789,8 @@ namespace BiblePayPool2018
             mailmsg.IsBodyHtml = blnHTML;
             mailmsg.From = mailfrom;
             mailmsg.Subject = strSubject;
-            mailmsg.Bcc.Add(AppSetting("smtpreplyto", "contact@biblepay.org"));
+            if (bCCBiblepay)             mailmsg.Bcc.Add(AppSetting("smtpreplyto", "contact@biblepay.org"));
+
 
             smtp.UseDefaultCredentials = false;
             smtp.EnableSsl = true;
@@ -778,15 +808,12 @@ namespace BiblePayPool2018
             }
             catch (Exception ex)
             {
-                clsStaticHelper.Log("We encountered a problem while sending the outbound e-mail to " + strTo.ToString() + ", port " + smtp.Port.ToString() + ", host " + smtp.Host + ", Cred " + smtpuser.Password.ToString() + ",  Email error: " + ex.Message);
+                clsStaticHelper.Log("We encountered a problem while sending the outbound e-mail to " + strTo.ToString() + ", port " + smtp.Port.ToString() + ", host " + smtp.Host + ", Email error: " + ex.Message);
                 isSend = false;
             }
             return isSend;
         }
-
         
-
-
         public bool IsValidEmailFormat(string s)
         {
             try
@@ -799,7 +826,6 @@ namespace BiblePayPool2018
             }
             return true;
         }
-
         
         public string PurifySQLStatement(string value)
         {
@@ -817,8 +843,7 @@ namespace BiblePayPool2018
                 value = "";
             return value;
         }
-
-
+        
         public string PrepareStatement(string sSection,string sql)
         {
             //Sql Injection Attack Prevention:
@@ -837,7 +862,6 @@ namespace BiblePayPool2018
                 if (true)
                 {
                     value = GetObjectValue(sSection, key);
-
                     value = PurifySQLStatement(value);
                     value = "'" + value + "'";
                     sql = Strings.Replace(sql, "@" + key, value);
@@ -889,7 +913,7 @@ namespace BiblePayPool2018
             {
                 // Retrieve the Dictionary entry for this field, then we can add it
                 USGDDictionary d = GetDictionaryMember(sTable, vFields[i]);
-                GodEdit ctl = null;
+                Edit ctl = null;
 
                 WebObj oCurrentObjValue = GetWebObjectFromDom(sSectionName, vFields[i]);
                 string sErrText = "";
@@ -899,7 +923,7 @@ namespace BiblePayPool2018
                 }
                 if (d.DataType==null || d.DataType.ToUpper() == "TEXT")
                 {
-                    ctl = new GodEdit(Section1.Name,GodEdit.GEType.Text, d.FieldName, d.Caption, this);
+                    ctl = new Edit(Section1.Name,Edit.GEType.Text, d.FieldName, d.Caption, this);
                     if (d.FieldSize > 0)                 ctl.size = d.FieldSize;
                     if (SecMode==SectionMode.View ) ctl.ReadOnly=true;
                     ctl.ErrorText = sErrText;
@@ -908,8 +932,8 @@ namespace BiblePayPool2018
                 }
                 else if (d.DataType.ToUpper()=="DATE")
                 {
-                    ctl = new GodEdit(Section1.Name, GodEdit.GEType.Text, d.FieldName, d.Caption, this);
-                    ctl.Type = GodEdit.GEType.Date;
+                    ctl = new Edit(Section1.Name, Edit.GEType.Text, d.FieldName, d.Caption, this);
+                    ctl.Type = Edit.GEType.Date;
                     if (d.FieldSize > 0) ctl.size = d.FieldSize;
                     if (SecMode == SectionMode.View) ctl.ReadOnly = true;
                     ctl.ErrorText = sErrText;
@@ -918,7 +942,7 @@ namespace BiblePayPool2018
                 }
                 else if (d.DataType.ToUpper()=="TEXTAREA")
                 {
-                    ctl = new GodEdit(Section1.Name,GodEdit.GEType.TextArea, d.FieldName, d.Caption, this);
+                    ctl = new Edit(Section1.Name,Edit.GEType.TextArea, d.FieldName, d.Caption, this);
                     if (SecMode == SectionMode.View) ctl.ReadOnly = true;
                     if (d.FieldSize > 0) ctl.size = d.FieldSize;
                     ctl.rows = d.FieldRows;
@@ -929,7 +953,7 @@ namespace BiblePayPool2018
                 }
                 else if (d.DataType.ToUpper()=="LOOKUP")
                 {
-                    ctl = new GodEdit(Section1.Name,GodEdit.GEType.Lookup, d.FieldName, d.Caption, this);
+                    ctl = new Edit(Section1.Name,Edit.GEType.Lookup, d.FieldName, d.Caption, this);
                     //If this field matches a corresponding LOOKUP field, pull the moniker out (maybe a state list, or maybe a name of a function that gets a list of values).
                     string sLookupMethod = string.Empty;
                     string sFieldList = GetLookupValues(d.TableName, d.FieldName, out sLookupMethod);
@@ -973,7 +997,9 @@ namespace BiblePayPool2018
 
         public string NetworkID { get; set; }
         public double mBitnetUseCount = 0;
-        public BitnetClient mBitnetNewClient = null;
+        public BitnetClient mBitnetMain = null;
+        public BitnetClient mBitnetTest = null;
+
         public void Log(string sData)
         {
             try
@@ -989,44 +1015,44 @@ namespace BiblePayPool2018
                 // Unable to Log anything here as the log itself is malfunctioning
             }
          }
-        public void InitializeNewBitnet(string sNetworkID)
+
+        public BitnetClient InitRPC(string sNetworkID)
         {
             try
             {
                 mBitnetUseCount += 1;
-                if (mBitnetNewClient == null || mBitnetUseCount == 1 || true)
-                {
-                    mBitnetNewClient = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
+                    BitnetClient bc;
+                    if (sNetworkID.ToLower() == "main")
+                    {
+                        bc = mBitnetMain;
+                    }
+                    else
+                    {
+                        bc = mBitnetTest;
+                    }
+
+
+                    bc = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
                     string sPass = AppSetting("RPCPass" + sNetworkID, "");
                     NetworkCredential cr = new NetworkCredential(AppSetting("RPCUser" + sNetworkID, ""), sPass);
-                    mBitnetNewClient.Credentials = cr;
-                }
+                    bc.Credentials = cr;
+                    return bc;
             }
             catch(Exception ex)
             {
                 Log("Unable to instantiate bitnet on network " + sNetworkID + "." + ex.Message);
+                return null;
             }
         }
 
 
         public string GetNewDepositAddress()
         {
-            InitializeNewBitnet(this.NetworkID);
-            string sAddress = mBitnetNewClient.GetNewAddress("");
+            BitnetClient bc =             InitRPC(this.NetworkID);
+            string sAddress = bc.GetNewAddress("");
             string sql = "Update Users set DespositAddress='" + sAddress + "' where username='" + this.Username + "' and deleted=0";
             _data.Exec(sql);
             return sAddress;
-        }
-
-        public string SendMoney(string sAddress, double cAmt, string sNetworkID)
-        {
-            object[] oParams = new object[2];
-            oParams[0] = sAddress;
-            oParams[1] = cAmt.ToString();
-            InitializeNewBitnet(sNetworkID);
-            dynamic oOut = mBitnetNewClient.InvokeMethod("sendtoaddress", oParams);
-            string sTxId = oOut["result"].ToString();
-            return sTxId;
         }
         
 
@@ -1034,8 +1060,8 @@ namespace BiblePayPool2018
         {
             try
             {
-                InitializeNewBitnet(sNetworkID);
-                int iBlockCount = mBitnetNewClient.GetBlockCount();
+                BitnetClient bc = InitRPC(sNetworkID);
+                int iBlockCount = bc.GetBlockCount();
                 return iBlockCount;
             }
             catch (Exception ex)
@@ -1064,11 +1090,13 @@ namespace BiblePayPool2018
             USGDTable us = new USGDTable(t,this,sTableName);
             return us;
         }
+
         public Int32 Val(object sInput)
         {
             if (sInput == null || sInput == DBNull.Value) return 0;
             return Convert.ToInt32(sInput);
         }
+
         private void MemorizeDictionary()
         {
             //This allows the system to display field captions, and replace GUIDs in the GUI with actual parent object values in the GUI.
@@ -1080,22 +1108,18 @@ namespace BiblePayPool2018
                 d.TableName = dt.Rows[y]["TableName"].ToString();
                 d.FieldName = dt.Rows[y]["FieldName"].ToString();
                 d.DataType = dt.Rows[y]["DataType"].ToString();
-
                 d.ParentTable = dt.Rows[y]["ParentTable"].ToString();
                 d.ParentFieldName = dt.Rows[y]["ParentFieldName"].ToString();
                 d.ParentGuiField1 = dt.Rows[y]["ParentGuiField1"].ToString();
                 d.ParentGuiField2 = dt.Rows[y]["ParentGuiField2"].ToString();
-
                 d.Caption = dt.Rows[y]["Caption"].ToString();
                 d.FieldSize = Val(dt.Rows[y]["FieldSize"]);
                 d.FieldRows = Val(dt.Rows[y]["FieldRows"]);
                 d.FieldCols = Val(dt.Rows[y]["FieldCols"]);
                 d.ErrorText = dt.Rows[y]["ErrorText"].ToString();
-
                 string Key = d.TableName.ToUpper() + "," + d.FieldName.ToUpper();
                 dictMasterDictionary.Add(Key, d);
             }
-
         }
 
         public USGDDictionary GetDictionaryMember(string sTableName, string sFieldName)
@@ -1242,12 +1266,23 @@ namespace BiblePayPool2018
             }
         }
 
+        public double GetObjectDouble(string section, string name)
+        {
+            object o = GetObjectValue(section, name);
+            if (o == null) return 0;
+            if (o.ToString() == "") return 0;
+            return Convert.ToDouble(o);
+        }
         public string GetObjectValue(string section, string name)
         {
             string key = (section + name).ToUpper();
             if (dictMembers.ContainsKey(key))
             {
-                return dictMembers[key].value.ToString();
+                string sOut = dictMembers[key].value.ToString();
+                sOut = sOut.Replace("[amp]", "&");
+                sOut = sOut.Replace("[plus]", "+");
+                sOut = sOut.Replace("[percent]", "%");
+                return sOut;
             }
             else
             {

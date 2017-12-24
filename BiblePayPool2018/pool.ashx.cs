@@ -52,7 +52,6 @@ namespace BiblePayPool2018
             WebObj g = new WebObj();
             g = JsonConvert.DeserializeObject<WebObj>(sPostData);
             SystemObject Sys = (SystemObject)HttpContext.Current.Session["Sys"];
-
             if (g.action == "postdiv" || g.action=="formload")
             {
                 // Now we store the uploaded values on the business objects
@@ -153,13 +152,10 @@ namespace BiblePayPool2018
                             string sSql = "Update Section set Fields='" + sCols + "' where id = '" + sSectionGuid + "'";
                             Sys._data.Exec(sSql);
                         }
-                        
-
                     }
                     else if (sPost.Contains("[SORTABLE]"))
                     {
                         sPost = sPost.Replace("[SORTABLE]", "");
-
                         string[] vRows2 = sPost.Split(new string[] { "[ROWSET]" }, StringSplitOptions.None);
                         string sSection = vRows2[0];
                         string sName = vRows2[1];
@@ -207,6 +203,15 @@ namespace BiblePayPool2018
                         context.Response.Write(myJason);
                         return;
                     }
+                    if (g.guid=="")
+                    {
+                        string[] vCol = g.body.Split(new string[] { "[COL]" }, StringSplitOptions.None);
+                        if (vCol.Length > 0)
+                        {
+                            //g.guid = vCol[0];
+                        }
+                        g.guid = "0";
+                    }
                     if (Sys.Organization.ToString() == "00000000-0000-0000-0000-000000000000")
                     {
                         //Session has expired
@@ -245,12 +250,6 @@ namespace BiblePayPool2018
                             {
                                 Login l = new Login(Sys);
                                 bool bMyDepersist = l.VerifyUser(sTheUser, sThePass, ref Sys, false);
-                                if (bMyDepersist)
-                                {
-                                    //g.classname = "BiblePayPool2018.Home";
-                                    //g.methodname = "Announce";
-                                    //goto redirect2;
-                                }
                             }
                         }
                     }
@@ -276,7 +275,6 @@ namespace BiblePayPool2018
                                 g.classname = "BiblePayPool2018.Home";
                                 g.methodname = "ExpenseList";
                             }
-
                             g.classname = "BiblePayPool2018.Login";
                             g.methodname = "LoginSection";
                         }

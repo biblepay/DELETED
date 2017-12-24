@@ -30,6 +30,24 @@ namespace BiblePayPool2018
             return wr;
         }
 
+        public WebReply CreateDialogWithMoreJavascript(string sID, string Title, string Body, int Width, int Height, string sMoreJavascript)
+        {
+
+            string sHTML = "<div id='" + sID + "' title='" + Title + "'>"
+                + "<p><span class='ui-icon ui-icon-circle-check' style='float:left; margin:0 7px 50px 0;'></span>"
+                + Body + " </p></div>";
+            string sWH = String.Empty;
+            if (Width > 0 || Height > 0)
+            {
+                sWH = "width: " + Width.ToString() + ", height: " + Height.ToString() + ",";
+            }
+            string sOpt = "var opt = {        autoOpen: false,   position: { my: 'top', at: 'top+150' },     modal: true, " + sWH + "title: '" + Title + "' };";
+            string sJavascript = sOpt + " var theDialog = $('#" + sID + "').dialog(opt); theDialog.dialog('open'); "+ sMoreJavascript;
+
+            WebReply wr = new WebReply(sHTML, sJavascript, sID, true);
+            return wr;
+        }
+
 
         public WebReply CreateDialogWebList(string sID, string Title, string Body, int Width, int Height)
         {
@@ -50,11 +68,11 @@ namespace BiblePayPool2018
         public WebReply CreateYesNoDialog(string sSectionName, string sDialogID, string sYesID, string sNoID, string Title, string Body, object Caller)
         {
 
-            GodEdit btnYes = new GodEdit(sSectionName,GodEdit.GEType.Button, sYesID, "Yes", Sys);
+            Edit btnYes = new Edit(sSectionName,Edit.GEType.Button, sYesID, "Yes", Sys);
             btnYes.IsInDialog = true;
             btnYes.DialogName = sDialogID;
             string sBtnYes = btnYes.Render(Caller).Packages[0].HTML;
-            GodEdit btnNo = new GodEdit(sSectionName,GodEdit.GEType.Button, sNoID, "No", Sys);
+            Edit btnNo = new Edit(sSectionName,Edit.GEType.Button, sNoID, "No", Sys);
             btnNo.IsInDialog = true;
             btnNo.DialogName = sDialogID;
             string sBtnNo = btnNo.Render(Caller).Packages[0].HTML;

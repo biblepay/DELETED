@@ -12,7 +12,6 @@ namespace BiblePayPool2018
     /// </summary>
     public class Uploader : IHttpHandler, IRequiresSessionState
     {
-
         public  void ProcessRequest(HttpContext context)
         {
             // Get System Object
@@ -24,10 +23,8 @@ namespace BiblePayPool2018
             string sDocGuid = "";
             string sParentType = context.Request.QueryString["parenttype"].ToString().ToLower();
             string sTargetTable = (sParentType == "picture" || sParentType=="letter" || sParentType=="news") ? "picture" : "documents";
-
             if (sParentType == "letter") sID = "";
             if (sParentType == "news") sID = "";
-
             bool bIsNew = false;
             if (sID.Length > 28)
             {
@@ -51,7 +48,6 @@ namespace BiblePayPool2018
             {
                 for (int i = 0; i < context.Request.Files.Count; i++)
                 {
-
                     if (i > 0)
                     {
                         sDocGuid = Guid.NewGuid().ToString();
@@ -81,16 +77,20 @@ namespace BiblePayPool2018
                         string sFileNamePrefix = fi.Name.Substring(0, fi.Name.Length - fi.Extension.Length);
                         System.IO.File.Copy(SaveLocation, sTargetPath, true);
                         string sURL = "";
-
                         if (sTargetTable == "picture")
                         {
                             //Copy SAN image to public web site
                             string sPublicSite = sSan + "\\Images\\";
                             string sTargetImagePath = sPublicSite + sTargetFileName;
+                            string sExt2 = sExtension.ToLower();
+                            bool bBlocked = (sExt2 == "png" || sExt2 == "jpg" || sExt2 == "jpeg") ? false : true;
+                            if (bBlocked)
+                            {
+                                throw new Exception("Extension not allowed.");
+                            }
                             System.IO.File.Copy(sTargetPath, sTargetImagePath, true);
                             sURL = sys.AppSetting("WebSite","http://myurl.biblepay.org/") + "SAN/" + sTargetFileName;
                         }
-
                         string sql = "Update "+ sTargetTable + " set Name='" + sFileNamePrefix + "',Extension = '" + sExtension 
                             + "',URL='" + sURL + "',SAN='" + sSan + "',FullFileName='" + sFullFileName + "',ParentType='" 
                             + sParentType + "',Updated=getdate(),Size='" + fi.Length.ToString() + "',UpdatedBy='" 

@@ -15,7 +15,6 @@ function keyDownTextField(e) {
     }
 }
 
-
 function FrameNav(sClass, sMethod)
 {
     // Argument 2 (The Method) tells c# to handle this request by invoking the named method
@@ -27,7 +26,22 @@ function FrameNav(sClass, sMethod)
         post("1", "formload", "formevent", "post=formload", "BiblePayPool2018.Home", 'FormLoad', postcomplete,"");
     }
 
-  
+    String.prototype.replaceAll = function (search, replacement) {
+        var target = this;
+        return target.replace(new RegExp(search, 'g'), replacement);
+    };
+
+    function Replace2(source, find, replacement)
+    {
+        for (var i = 0; i < 99; i++)
+        {
+            var begin = source;
+            source = source.replace(find, replacement);
+            if (begin == source) break;
+        }
+        return source;
+    }
+
     function postdiv(o,sEventName,sClassName,sMethodName,sGUID)
     {
         var sOut = "";
@@ -42,6 +56,9 @@ function FrameNav(sClass, sMethod)
             var sControlType = $(this)[0].type;
             if (sControlType == "checkbox") sControlValue = $(this)[0].checked;
             var s = $(this)[0].name + "[COL]" + sControlValue + "[COL]" + sUSGDID + "[COL]" + sUSGDValue + "[ROW]";
+            s = Replace2(s, '&', '[amp]');
+            s = Replace2(s, '+', '[plus]');
+            s = Replace2(s, '%', '[percent]');
             sOut += s;
         });
         // for each textarea
@@ -266,7 +283,6 @@ function FrameNav(sClass, sMethod)
             fileUpload(oForm, sURL, sDivName, sReturnClass, sReturnMethod, sSectionName);
         }
     }
-
 
     function post(sDivName,sAction,sEventName,sData,sClassName,sMethodName,callbackfunc,sGUID)
     {

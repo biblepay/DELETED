@@ -49,7 +49,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Bitnet.Client">
-      <HintPath>..\..\..\Biblepay\BiblepayPool\bitnet\Bitnet.Client\bin\Release\Bitnet.Client.dll</HintPath>
+      <HintPath>Dependencies\Bitnet.Client.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Office.Interop.Excel, Version=14.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
@@ -141,6 +141,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BaseHandler.cs" />
+    <Compile Include="clsDeprecated.cs" />
     <Compile Include="clsStaticHelper.cs" />
     <Compile Include="Cryptography.cs" />
     <Compile Include="DatabaseOperations.cs" />
@@ -189,9 +190,13 @@
     <Folder Include="uploads\" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="USGDFramework\USGDFramework\USGDFramework\USGDFramework.csproj">
+    <ProjectReference Include="USGDFramework\USGDFramework\USGDFramework.csproj">
       <Project>{09a0bbe1-5ea1-44cf-931a-f93d877736c6}</Project>
       <Name>USGDFramework</Name>
+    </ProjectReference>
+    <ProjectReference Include="Zinc\Zinc\Zinc.csproj">
+      <Project>{9089cb6c-1e60-4b46-b718-30ead2aaafb4}</Project>
+      <Name>Zinc</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

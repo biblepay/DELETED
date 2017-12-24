@@ -29,6 +29,9 @@ namespace BiblePayPool2018
                 // No System object yet
                 SystemObject s = new SystemObject("1");
                 s.Username = "PAGE"; //Temporary values (until user logs in)
+                s.CurrentHTTPContext = HttpContext.Current;
+                s.IP = (HttpContext.Current.Request.UserHostAddress ?? "").ToString();
+
                 HttpContext.Current.Session["Sys"] = s;
             }
             SystemObject Sys = (SystemObject)HttpContext.Current.Session["Sys"];

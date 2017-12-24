@@ -83,7 +83,6 @@ namespace BiblePayPool2018
 
 	    public static string Des3DecryptData(string encryptedtext)
 	    {
-
 			   Merkle(MerkleRoot);
 	           byte[] encryptedBytes = Convert.FromBase64String(encryptedtext);
     		   System.IO.MemoryStream ms = new System.IO.MemoryStream();

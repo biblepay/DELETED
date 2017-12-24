@@ -12,12 +12,13 @@ namespace BiblePayPool2018
     public class clsStaticHelper
     {
         public static object myLock = "A";
-        public static long lVersion = 1017;
+        public static long lBackEndVer = 2022;
         public static bool bResult;
         public static USGDFramework.Data mPD = new USGDFramework.Data();
         public static HttpServerUtility mHttpServer;
         public static SqlConnection sqlConnection;
-        public static BitnetClient mBitnetNewClient;
+        public static BitnetClient mBitnetMain;
+        public static BitnetClient mBitnetTest;
         public static double nCurrentTipHeightMain = 0;
         public static double mBitnetUseCount = 0;
         public static object ExtractXML(string sData, string sStartKey, string sEndKey)
@@ -28,6 +29,74 @@ namespace BiblePayPool2018
             if (iPos2 == 0)  return "";
             string sOut = Strings.Mid(sData, iPos1, iPos2 - iPos1);
             return sOut;
+        }
+        public static double GetDouble(object o)
+        {
+            if (o == null) return 0;
+            if (o.ToString() == "") return 0;
+            double d = Convert.ToDouble(o.ToString());
+            return d;
+        }
+
+        public static bool AdjustUserBalance(string networkid, string userguid, double amt)
+        {
+            string sql = "exec AdjustUserBalance '" + networkid  + "','" + amt.ToString() + "','" 
+                + userguid + "'";
+            mPD.Exec(sql);
+            return true;
+        }
+
+        public static bool InsTxLog(string susername, string suserguid, 
+            string networkid, double iHeight, string sTXID, double amt, double oldBalance, double newBalance, string sDestination, string sTransactionType, string sNotes)
+        {
+            string sql = "exec InsTxLog '" + iHeight.ToString() + "','" + sTXID + "','" + susername + "','" + suserguid
+                + "','" + sTransactionType + "','" + sDestination + "','" + amt.ToString()
+                + "','" + oldBalance.ToString() + "','" + newBalance.ToString() + "','"
+                + networkid + "','" + sNotes + "'";
+            clsStaticHelper.mPD.Exec(sql);
+            return true;
+        }
+
+        public static Zinc.BiblePayMouse.MouseOutput GetCachedCryptoPrice(string sSymbol)
+        {
+            string q = "Select * from CryptoPrice where Symbol = '" + sSymbol + "' and Added > getdate()-(1/24.01) ";
+            DataTable dt = mPD.GetDataTable(q);
+            if (dt.Rows.Count > 0)
+            {
+                double dBTCPrice = Convert.ToDouble(dt.Rows[0]["BTCPrice"].ToString());
+                Zinc.BiblePayMouse.MouseOutput m1 = new Zinc.BiblePayMouse.MouseOutput();
+                m1.BTCPrice = dBTCPrice;
+                m1.BBPPrice = Convert.ToDouble(dt.Rows[0]["BBPPrice"].ToString());
+                return m1;
+            }
+            string sToken = clsStaticHelper.AppSetting("MouseToken", "");
+            Zinc.BiblePayMouse bpm = new Zinc.BiblePayMouse(sToken);
+            Zinc.BiblePayMouse.MouseOutput mp = bpm.GetCryptoPrice("bbp");
+            // Delete the old record, insert the new record
+            if (mp.BTCPrice > 0 && mp.BBPPrice > 0)
+            {
+                string sql = "Delete from CryptoPrice where Symbol='" + sSymbol + "'";
+                sql += "\r\nInsert Into CryptoPrice (id,Symbol,BTCPrice,BBPPrice,Added) values (newid(),'" + sSymbol + "','" 
+                    + mp.BTCPrice.ToString() + "','" + mp.BBPPrice.ToString() + "',getdate())";
+                mPD.Exec(sql);
+            }
+            else
+            {
+                string q1 = "Select * from CryptoPrice where Symbol = '" + sSymbol + "' ";
+                DataTable dt1 = mPD.GetDataTable(q1);
+                if (dt1.Rows.Count > 0)
+                {
+                    double dBTCPrice = Convert.ToDouble(dt1.Rows[0]["BTCPrice"].ToString());
+                    Zinc.BiblePayMouse.MouseOutput m1 = new Zinc.BiblePayMouse.MouseOutput();
+                    m1.BTCPrice = dBTCPrice;
+                    m1.BBPPrice = Convert.ToDouble(dt1.Rows[0]["BBPPrice"].ToString());
+
+                    return m1;
+                }
+
+            }
+
+            return mp;
         }
         public static string ReadKey(string sKey, HttpApplicationState ha)
         {
@@ -45,11 +114,8 @@ namespace BiblePayPool2018
             return sOut;
         }
 
-
         public static void StoreCookie(string sKey, string sValue)
         {
-
-            
             try
             {
                 HttpCookie _pool = new HttpCookie("credentials_" + sKey);
@@ -76,7 +142,6 @@ namespace BiblePayPool2018
             }
             return "";
         }
-        
 
         public static void UpdateKey(string sKey, string sValue, HttpApplicationState ha)
         {
@@ -106,13 +171,64 @@ namespace BiblePayPool2018
             return encoding.GetBytes(str);
         }
 
+        public static void InitRPC(string sNetworkID)
+        {
+            mBitnetUseCount += 1;
+            BitnetClient oBit;
+            if (sNetworkID.ToLower() == "main")
+            {
+                oBit =  mBitnetMain;
+            }
+            else
+            {
+                oBit = mBitnetTest;
+            }
+
+            try
+            {
+                if (oBit == null || mBitnetUseCount < 3)
+                {
+                    oBit = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
+                    string sPass = AppSetting("RPCPass" + sNetworkID, "");
+                    NetworkCredential Cr = new NetworkCredential(AppSetting("RPCUser" + sNetworkID, ""), sPass);
+                    oBit.Credentials = Cr;
+                    if (sNetworkID.ToLower()=="main")
+                    {
+                        mBitnetMain = oBit;
+                    }
+                    else
+                    {
+                        mBitnetTest = oBit;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+
+        public static BitnetClient GetBitNet(string sNetworkID)
+        {
+
+            InitRPC(sNetworkID);
+            if (sNetworkID.ToLower()=="main")
+            {
+                return mBitnetMain;
+            }
+            else
+            {
+                return mBitnetTest;
+            }
+        }
+
         public static bool ValidateBiblepayAddress(string sAddress, string sNetworkID)
         {
             try
             {
-                InitializeNewBitnet(sNetworkID);
                 object oValid = null;
-                oValid = mBitnetNewClient.ValidateAddress(sAddress);
+                BitnetClient oBit = clsStaticHelper.GetBitNet(sNetworkID);
+                oValid = oBit.ValidateAddress(sAddress);
                 string sValid = null;
                 sValid = oValid.ToString();
                 if (!sValid.Contains("true"))
@@ -124,29 +240,7 @@ namespace BiblePayPool2018
                 return false;
             }
         }
-
-        public static void InitializeNewBitnet(string sNetworkID)
-        {
-       
-            mBitnetUseCount += 1;
-            try
-            {
-                if (mBitnetNewClient == null || mBitnetUseCount < 5)
-                {
-                    mBitnetNewClient = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
-                    string sPass = AppSetting("RPCPass" + sNetworkID, "");
-                    NetworkCredential Cr = new NetworkCredential(AppSetting("RPCUser" + sNetworkID, ""), sPass);
-                    mBitnetNewClient.Credentials = Cr;
-                }
-            }
-            catch(Exception)
-            {
-                mBitnetNewClient = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
-                string sPass = AppSetting("RPCPass" + sNetworkID, "");
-                NetworkCredential Cr = new NetworkCredential(AppSetting("RPCUser" + sNetworkID, ""), sPass);
-                mBitnetNewClient.Credentials = Cr;
-            }
-        }
+        
 
         public static double RequestModulusByMinerGuid(HttpServerUtility server, HttpApplicationState ha, HttpRequest hr, string sMinerGuid)
         {
@@ -244,13 +338,21 @@ namespace BiblePayPool2018
             return String.Empty;
         }
 
+        public static double GetSystemDouble(string sKey)
+        {
+            string sql = "Update System Set Value=Value+1 where systemKey='" + sKey + "'";
+            mPD.Exec(sql);
+            sql = "Select Value from System where systemKey='" + sKey + "'";
+            double d1 = GetScalarDouble(sql, "Value");
+            return d1;
+        }
 
         public static object Housecleaning(string sNetworkID, HttpServerUtility server, HttpApplicationState ha, bool bForce)
         {
             try
             {
                 if (string.IsNullOrEmpty(sNetworkID)) sNetworkID = "test";
-                //Once every minute or so, perform housecleaning
+                //Once every interval perform housecleaning
                 string sClean = AppCache("lastcleaning" + sNetworkID, ha);
                 DateTime dtClean = default(DateTime);
                 if (Strings.Len(sClean) > 0)
@@ -264,31 +366,29 @@ namespace BiblePayPool2018
                 string sHealth = GetHealth(sNetworkID);
                 if (dt8Secs > 180)
                 {
-                    AppCache("lastscan" + sNetworkID, DateTime.Now.ToString(), server, ha);
-                    lock (myLock)
+                    // Allow up to 10 threads to hit this thing at once, then fall through and lock this thread
+                    double d1 = GetSystemDouble("main_housecleaning");
+                    if (d1 % 10 == 0)
                     {
-                        if (sHealth != "HEALTH_DOWN")
+                        lock (myLock)
                         {
-                            ScanBlocksForPoolBlocksSolved(sNetworkID, bForce);
+                            AppCache("lastscan" + sNetworkID, DateTime.Now.ToString(), server, ha);
+                            AppCache("lastcleaning" + sNetworkID, DateTime.Now.ToString(), server, ha);
+                            if (sHealth != "HEALTH_DOWN")
+                            {
+                                ScanBlocksForPoolBlocksSolved(sNetworkID, bForce);
+                            }
+                            string sql = "exec UpdatePool '' ";
+                            mPD.Exec(sql);
+                            // Verify all solutions
+                            VerifySolutions(sNetworkID);
+                            //Clear out old Work records (networkid does not matter as old is old) check to see if any blocks are solved
+                            if (clsStaticHelper.LogLimiter() > 990)
+                            {
+                                RewardUpvotedLetterWriters();
+                            }
+                            return true;
                         }
-                    }
-                }
-
-                if (dtSecs > 60 || bForce)
-                {
-                    lock (myLock)
-                    {
-                        AppCache("lastcleaning" + sNetworkID, DateTime.Now.ToString(), server, ha);
-                        string sql = "exec UpdatePool '' ";
-                        mPD.Exec(sql);
-                        // Verify all solutions
-                        VerifySolutions(sNetworkID);
-                        //Clear out old Work records (networkid does not matter as old is old) check to see if any blocks are solved
-                        if (clsStaticHelper.LogLimiter() > 970)
-                        {
-                            RewardUpvotedLetterWriters();
-                        }
-                        return true;
                     }
                 }
                 return true;
@@ -304,8 +404,8 @@ namespace BiblePayPool2018
         {
             try
             {
-                InitializeNewBitnet(snetworkid);
-                int iTipHeight = mBitnetNewClient.GetBlockCount();
+                BitnetClient oBit = clsStaticHelper.GetBitNet(snetworkid);
+                int iTipHeight = oBit.GetBlockCount();
                 if (snetworkid=="main" && iTipHeight > 0) nCurrentTipHeightMain = iTipHeight;
                 return iTipHeight;
             }
@@ -315,30 +415,49 @@ namespace BiblePayPool2018
             }
         }
         
-        public static string GetBibleHash(string sBlockHash, string sBlockTime, string sPrevBlockTime, string sPrevHeight, string sNetworkID)
+        public static double GetNonceInfo(string sNetworkID)
+        {
+                try
+                {
+                    object[] oParams = new object[1];
+                    oParams[0] = "pmninfo";
+                    BitnetClient oBit = GetBitNet(sNetworkID);
+                    dynamic oOut = oBit.InvokeMethod("exec", oParams);
+                    double nNonceInfo = GetDouble(oOut["result"]["pmninfo"]);
+                    return nNonceInfo;
+                }
+                catch (Exception ex)
+                {
+                    clsStaticHelper.Log("GetNonceInfo: " + ex.Message);
+                    return 0;
+                }
+        }
+
+
+        public static string GetBibleHash(string sBlockHash, string sBlockTime, string sPrevBlockTime, string sPrevHeight, string sNetworkID, string sNonce)
         {
             for (int x = 1; x <= 2; x++)
             {
                 try
                 {
-                    object[] oParams = new object[5];
+                    object[] oParams = new object[6];
                     oParams[0] = "biblehash";
                     oParams[1] = sBlockHash;
                     oParams[2] = Conversion.Val(sBlockTime).ToString();
                     oParams[3] = Conversion.Val(sPrevBlockTime).ToString();
                     oParams[4] = Conversion.Val(sPrevHeight).ToString();
-                    clsStaticHelper.InitializeNewBitnet(sNetworkID);
-                    dynamic oOut = clsStaticHelper.mBitnetNewClient.InvokeMethod("exec", oParams);
+                    oParams[5] = Conversion.Val(sNonce).ToString();
+                    BitnetClient oBit = GetBitNet(sNetworkID);
+                    dynamic oOut = oBit.InvokeMethod("exec", oParams);
                     string sBibleHash = "";
                     sBibleHash = oOut["result"]["BibleHash"].ToString();
-
                     return sBibleHash;
                 }
                 catch (Exception ex)
                 {
                     if (clsStaticHelper.LogLimiter() > 900)
                     {
-                        clsStaticHelper.Log("getbiblehash forensics " + sNetworkID + ": " + " run biblehash " + Strings.Trim(sBlockHash) + " " + Strings.Trim(sBlockTime) + " " + Strings.Trim(sPrevBlockTime) + " " + Strings.Trim(sPrevHeight) + Constants.vbCrLf + ex.Message.ToString());
+                        clsStaticHelper.Log("getbiblehash forensics " + sNetworkID + ": " + " run biblehash " + Strings.Trim(sBlockHash) + " " + Strings.Trim(sBlockTime) + " " + Strings.Trim(sPrevBlockTime) + " " + Strings.Trim(sPrevHeight) + " " + Strings.Trim(sNonce) + Constants.vbCrLf + ex.Message.ToString());
                         clsStaticHelper.mBitnetUseCount += 1;
                     }
                 }
@@ -352,8 +471,7 @@ namespace BiblePayPool2018
             int iHow = d.Next(1000);
             return iHow;
         }
-
-       
+        
 
         public static void GetOSInfo(string sOS, ref string sNarr, ref double dMinerCount, ref double dAvgHPS, ref double dTotal)
         {
@@ -381,15 +499,135 @@ namespace BiblePayPool2018
             return sOut;
         }
 
+        public static string GetBlockTx(string sNetworkid, string sCommand, int iBlockNumber, int iPositionId)
+        {
+            try
+            {
+                BitnetClient oBit = GetBitNet(sNetworkid);
+                object[] oParams = new object[1];
+                oParams[0] = iBlockNumber.ToString();
+                dynamic oOut = oBit.InvokeMethod(sCommand,oParams);
+                // Default RPC result key is named "result"
+                string sOut = oOut["result"]["tx"][iPositionId].ToString();
+                return sOut;
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+
+        public static string GetRawTransaction(string sNetworkid, string sTxid)
+        {
+            try
+            {
+                BitnetClient b = GetBitNet(sNetworkid);
+                object[] oParams = new object[2];
+                oParams[0] = sTxid;
+                oParams[1] = 1;
+                dynamic oOut = b.InvokeMethod("getrawtransaction", oParams);
+                // Loop Through the Vouts and get the recip ids and the amounts
+                string sOut = "";
+                for (int y = 0; y < 99; y++)
+                {
+                    string sPtr = "";
+                    try
+                    {
+                         sPtr = (oOut["result"]["vout"][y] ?? "").ToString();
+                    }
+                    catch(Exception ey)
+                    {
+
+                    }
+                    
+                    if (sPtr != "")
+                    {
+                        string sAmount = oOut["result"]["vout"][y]["value"].ToString();
+                        string sAddress = "";
+                        if (oOut["result"]["vout"][y]["scriptPubKey"]["addresses"] != null)
+                        {
+                            sAddress = oOut["result"]["vout"][y]["scriptPubKey"]["addresses"][0].ToString();
+                        }
+                        else { sAddress = "?"; } //Happens when pool pays itself
+                        sOut += sAmount + "," + sAddress + "|";
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                return sOut;
+            }
+            catch (Exception ex)
+            {
+                clsStaticHelper.Log(ex.Message);
+                return "";
+            }
+        }
+
+
+        public static string GetMiningInfo(string sNetworkID, string sKey)
+        {
+            try
+            {
+                BitnetClient bc = GetBitNet(sNetworkID);
+                object[] oParams = new object[1];
+                oParams[0] = "";
+                dynamic oOut = bc.InvokeMethod("getmininginfo");
+                string sOut = oOut["result"][sKey].ToString();
+                return sOut;
+            }
+            catch (Exception ex)
+            {
+                string test = ex.Message;
+            }
+            return "";
+        }
+
+
+        public static string GetGenericInfo0(string sNetworkid, string sCommand, string sKey, string sResultName)
+        {
+            try
+            {
+                BitnetClient bc = GetBitNet(sNetworkid);
+               dynamic oOut = bc.InvokeMethod(sCommand);
+                // Default RPC result key is named "result"
+                string sOut = oOut[sResultName][sKey].ToString();
+                return sOut;
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+
+        public static double GetMasternodeCount(string sNetworkid)
+        {
+            try
+            {
+                BitnetClient b = GetBitNet(sNetworkid);
+                object[] oParams = new object[1];
+                oParams[0] = "list";
+                dynamic oOut = b.InvokeMethod("masternode", oParams);
+                string sResult = oOut["result"].ToString();
+                string[] vData = sResult.Split(new string[] { "ENABLED" }, StringSplitOptions.None);
+                return (double)vData.Length;
+
+            }
+            catch (Exception ex)
+            {
+                return 1;
+            }
+        }
+
         public static string GetGenericInfo(string sNetworkid, string sCommand, string sKey, string sResultName)
         {
             try
             {
-                InitializeNewBitnet(sNetworkid);
+                BitnetClient bc = GetBitNet(sNetworkid);
                 object[] oParams = new object[1];
                 oParams[0] = "";
-                dynamic oOut = clsStaticHelper.mBitnetNewClient.InvokeMethod(sCommand);
-                // Default RPC result key is named "result"
+                dynamic oOut = bc.InvokeMethod(sCommand);
                 string sOut = oOut[sResultName][sKey].ToString();
                 return sOut;
             }
@@ -403,14 +641,57 @@ namespace BiblePayPool2018
         {
             try
             {
-                InitializeNewBitnet(sNetworkid);
-                dynamic oOut = clsStaticHelper.mBitnetNewClient.InvokeMethod(sCommand1, oParam);
+                BitnetClient bc = GetBitNet(sNetworkid);
+                dynamic oOut = bc.InvokeMethod(sCommand1, oParam);
                 string sOut = oOut["result"][sResultName].ToString();
                 return sOut;
             }
             catch (Exception)
             {
                 return String.Empty;
+            }
+        }
+        public static string GetGenericInfo3(string sNetworkid, string sCommand1, object[] oParam)
+        {
+            try
+            {
+                BitnetClient bc = GetBitNet(sNetworkid);
+                dynamic oOut = bc.InvokeMethod(sCommand1, oParam);
+                string sOut = oOut["result"].ToString();
+                return sOut;
+            }
+            catch (Exception ex)
+            {
+                return String.Empty;
+            }
+        }
+        public struct VoteType
+        {
+            public double AbsoluteYesCount;
+            public double YesCount;
+            public double NoCount;
+            public double AbstainCount;
+            public bool Success;
+        }
+        public static VoteType GetGenericInfo4(string sNetworkid, string sCommand1, object[] oParam)
+        {
+            VoteType v = new VoteType();
+            v.Success = false;
+            v.AbstainCount = -1;
+            try
+            {
+                BitnetClient bc = GetBitNet(sNetworkid);
+                dynamic oOut = bc.InvokeMethod(sCommand1, oParam);
+                v.AbsoluteYesCount = Convert.ToDouble(oOut["result"]["FundingResult"]["AbsoluteYesCount"].ToString());
+                v.YesCount = Convert.ToDouble(oOut["result"]["FundingResult"]["YesCount"].ToString());
+                v.NoCount = Convert.ToDouble(oOut["result"]["FundingResult"]["NoCount"].ToString());
+                v.AbstainCount = Convert.ToDouble(oOut["result"]["FundingResult"]["AbstainCount"].ToString());
+                v.Success = true;
+                return v;
+            }
+            catch (Exception ex)
+            {
+                return v;
             }
         }
 
@@ -439,8 +720,8 @@ namespace BiblePayPool2018
                 object[] oParams = new object[2];
                 oParams[0] = "subsidy";
                 oParams[1] = Strings.Trim(nHeight.ToString());
-                InitializeNewBitnet(sNetworkID);
-                dynamic oOut = mBitnetNewClient.InvokeMethod("exec", oParams);
+                BitnetClient bc = GetBitNet(sNetworkID);
+                dynamic oOut = bc.InvokeMethod("exec", oParams);
                 string sOut = "";
                 sOut = oOut["result"][sFieldName].ToString();
                 return sOut;
@@ -451,8 +732,7 @@ namespace BiblePayPool2018
             }
             return "";
         }
-
-
+        
         private double GetHPS(string sMinerGuid, string sNetworkID)
         {
             string sql = "Select isnull(boxhps" + sNetworkID + ",0) As hps from miners where id ='" + Strings.Trim(sMinerGuid) + "'";
@@ -491,6 +771,74 @@ namespace BiblePayPool2018
 
         }
 
+        public static string Left(string data, int left)
+        {
+            if (data == null) return "";
+            if (data.Length >= left)
+            {
+                return data.Substring(0, left);
+            }
+            return data;
+        }
+        
+
+        public static void GetOrderStatusUpdates()
+        {
+            // for any order that is ours, that is not complete
+            string sql = "Select * from Orders where Status3 is null";
+            DataTable dt = clsStaticHelper.mPD.GetDataTable(sql);
+            string sToken = clsStaticHelper.AppSetting("MouseToken", "");
+            Zinc.BiblePayMouse b = new Zinc.BiblePayMouse(sToken);
+            for (int i = 0; i <= dt.Rows.Count - 1; i++)
+            {
+                string sOrderGuid = dt.Rows[i]["id"].ToString();
+                string sMouseId = dt.Rows[i]["mouseid"].ToString();
+                Zinc.BiblePayMouse.MouseOutput mo = b.GetOrderStatus(sMouseId);
+                // Ascertain the status - ordered, processed, tracking provided
+                if (mo.tracking != null)
+                {
+                    if (mo.tracking.Length > 1)
+                    {
+                        string sql3 = "Update orders set Status3='" + mo.tracking + "' where id = '" + sOrderGuid + "'";
+                        clsStaticHelper.mPD.Exec(sql3);
+                    }
+                }
+                if (mo.code.Length > 1)
+                {
+                    string sql2 = "Update orders set Status1 = '" + Left(mo.code, 20) + "' where id = '" + sOrderGuid + "'";
+                    clsStaticHelper.mPD.Exec(sql2);
+                }
+                if (mo.message != null)
+                {
+                    if (mo.message.Length > 1)
+                    {
+                        string sStatus = MsgToStatus(mo.message);
+                        string sql2 = "Update orders set Updated=getdate(),Status1='PLACED',Status2 = '" + sStatus + "' where id = '" + sOrderGuid + "'";
+                        clsStaticHelper.mPD.Exec(sql2);
+                    }
+                }
+            }
+        }
+
+        public static string MsgToStatus(string data)
+        {
+            string sOut = "";
+            if (data.Contains("Request was placed onto the queue and will launch when the retailer account is no longer busy with other requests."))
+            {
+                sOut = "QUEUED";
+            }
+            if (data.Contains("Initiated the request on the retailer."))
+            {
+                sOut = "VERIFYING INVENTORY";
+            }
+            if (data.Contains("The request completed and returned a response."))
+            {
+
+                sOut = "FILLING ORDER";
+            }
+            return sOut;
+        }
+
         
         public static bool ScanBlocksForPoolBlocksSolved(string sNetworkID, bool bHalfDay)
         {
@@ -516,11 +864,32 @@ namespace BiblePayPool2018
                     double cSub = Conversion.Val("0" + GetBlockInfo(nHeight, "subsidy", sNetworkID));
                     //if recipient is pool...
                     string sRecipient = GetBlockInfo(nHeight, "recipient", sNetworkID);
-                    if ((nHeight % 10 == 0))
-                        cSub = 0;
+
                     if (sRecipient == sPoolRecvAddress)
                     {
-                        string sql = "insert into blocks (id,height,updated,subsidy,networkid) values (newid(),'" + Strings.Trim(nHeight.ToString()) + "',getdate(),'" + cSub.ToString() + "','" + sNetworkID + "')";
+                        string sMinerNameByHashPs = "?";
+
+                        string sql1 = "Select isnull(Username,'') as UserName,isnull(MinerName,'') as MinerName from leaderboard" + sNetworkID + " order by HPS2 desc";
+                            DataTable dt10 = mPD.GetDataTable(sql1);
+                        if (dt10.Rows.Count > 0)
+                        {
+                            sMinerNameByHashPs = dt10.Rows[0]["Username"].ToString() + "." + dt10.Rows[0]["MinerName"].ToString();
+                        }
+                        // Populate the Miner_who_found_block field:
+                        string sVersion = GetBlockInfo(nHeight, "blockversion", sNetworkID);
+                        string sMinerGuid = GetBlockInfo(nHeight, "minerguid", sNetworkID);
+                        sql1 = "Select isnull(username,'') as UserName from Miners where id='" + sMinerGuid + "'";
+                        dt10 = mPD.GetDataTable(sql1);
+                        string sMinerNameWhoFoundBlock = "?";
+
+                        if (dt10.Rows.Count > 0)
+                        {
+                            sMinerNameWhoFoundBlock = (dt10.Rows[0]["UserName"] ?? "").ToString();
+                        }
+
+                        string sql = "insert into blocks (id,height,updated,subsidy,networkid,minernamebyhashps,minerid,blockversion,MinerNameWhoFoundBlock) values (newid(),'" 
+                            + Strings.Trim(nHeight.ToString()) + "',getdate(),'" + cSub.ToString() + "','" + sNetworkID + "','" + sMinerNameByHashPs + "','" + sMinerGuid + "','" 
+                            + sVersion + "','" + sMinerNameWhoFoundBlock + "')";
                         try
                         {
                             mPD.Exec(sql);
@@ -541,7 +910,7 @@ namespace BiblePayPool2018
                     if (sRecipient != sPoolRecvAddress && cSub > 0)
                     {
                         // Claw this amount
-                        clsStaticHelper.Log(" CLAWBACK FOR HEIGHT " + nHeight.ToString());
+                        //clsStaticHelper.Log(" CLAWBACK FOR HEIGHT " + nHeight.ToString());
                     }
                     
                 }
@@ -577,6 +946,7 @@ namespace BiblePayPool2018
         {
             try
             {
+                if (sUserId == "") return 0;
                 string sql = "Select isnull(Balance" + sNetworkID + ",0) as balance,USERNAME from Users where id = '" + sUserId + "'";
                 DataTable dtBal = default(DataTable);
                 dtBal = mPD.GetDataTable(sql);
@@ -596,20 +966,32 @@ namespace BiblePayPool2018
             }
         }
 
-        
-        public static void AwardBounty(string sLetterID, string sUserId, double dAmount, string sBOUNTYNAME, double nHeight, string sTxId, string sNetworkID, string sNotes)
+        public static bool GetUserBalances(string sNetworkID, string userguid, ref double dBalance, ref double dImmature)
+        {
+            if (userguid == "") return false;
+
+            string sql = "Select isnull(Balance" + sNetworkID + ",0) as bal1 From Users with (nolock) where id='" + userguid
+                + "' and deleted=0";
+            dBalance = mPD.GetScalarDouble(sql, "bal1");
+            sql = "Select isnull(sum(amount),0) As Immature from transactionlog where updated > getdate()-1 And userid='" + userguid
+                + "'"
+                    + " And networkid = '" + sNetworkID + "' and transactiontype='MINING_CREDIT'";
+            dImmature = mPD.GetScalarDouble(sql, "Immature");
+            return true;
+        }
+
+
+        public static double AwardBounty(string sLetterID, string sUserId, double dAmount, string sBOUNTYNAME, double nHeight, string sTxId, string sNetworkID, string sNotes, bool bLetter)
         {
             try
             {
-
                 string sUserName = "";
                 double cBalance = GetUserBalance(sUserId, sNetworkID, ref sUserName);
                 double cNewBalance = cBalance + dAmount;
-                
                 string sql2 = "Insert into transactionlog (id,height,transactionid,username,userid,transactiontype,destination,amount,oldbalance,newbalance,added,updated,rake,networkid,notes)" + " values (newid(),'" 
                     + nHeight.ToString()  + "','" 
                     + Strings.Trim(sTxId) + "','" + sUserName + "','"
-                    + sUserId + "','" +sBOUNTYNAME + "','" + sUserId + "','"
+                    + sUserId + "','" +sBOUNTYNAME + "','" + sLetterID + "','"
                     + Strings.Trim(dAmount.ToString()) + "','"
                     + Strings.Trim(cBalance.ToString()) + "','"
                     + Strings.Trim(cNewBalance.ToString())
@@ -618,19 +1000,24 @@ namespace BiblePayPool2018
                 //update balance now if the tx was inserted:
                 sql2 = "Update Users set balance" + sNetworkID + " = '" + Strings.Trim(cNewBalance.ToString()) + "' where id = '" + Strings.Trim(sUserId) + "'";
                 mPD.Exec(sql2);
-                //Mark the record Paid
-                sql2 = "Update Letters set PAID=1 where id = '" + sLetterID + "'";
-                mPD.Exec(sql2);
-                sql2 = "Insert into Letterwritingfees (id,height,added,amount,networkid,quantity) values (newid(),0,getdate(),'" + (-1*dAmount).ToString() + "','" + sNetworkID + "',0)";
-                mPD.Exec(sql2);
-                //subtract the bounty from the bounty table
+                if (bLetter)
+                {
+                    //Mark the record Paid
+                    sql2 = "Update Letters set PAID=1 where id = '" + sLetterID + "'";
+                    mPD.Exec(sql2);
+                    sql2 = "Insert into Letterwritingfees (id,height,added,amount,networkid,quantity) values (newid(),0,getdate(),'" + (-1 * dAmount).ToString() + "','" + sNetworkID + "',0)";
+                    mPD.Exec(sql2);
+                    //subtract the bounty from the bounty table
+                }
+                return cNewBalance;
 
             }
             catch (Exception ex)
             {
                 clsStaticHelper.Log("Unable to insert new AwardBounty in tx log : " + ex.Message);
+                return 0;
             }
-            
+            return 0;
         }
 
 
@@ -644,16 +1031,14 @@ namespace BiblePayPool2018
         
         public static void RewardUpvotedLetterWriters()
         {
-            
             //Pay out any funds marked as unpaid and add a transaction to transactionLog
-            string sql = "select * from letters where paid <> 1 and upvote >= 7";
+            string sql = "select * from letters where paid <> 1 and upvote >= 10";
             DataTable dt = new DataTable();
             dt = mPD.GetDataTable(sql);
             double dApprovals = dt.Rows.Count;
             double dChildren = GetRequiredLetterCount();
             double dBounty = GetTotalBounty();
             double dIndBounty = dBounty / (dChildren + .01);
-            
             for (int y = 0; y <= dt.Rows.Count - 1; y++)
             {
                 string sId = dt.Rows[y]["id"].ToString();
@@ -664,22 +1049,115 @@ namespace BiblePayPool2018
                     mPD.Exec(sql2);
                     if (dIndBounty > 1)
                     {
-                        AwardBounty(sId,sUserid, dIndBounty, "LETTER_WRITING", 0, sId.ToString(), "main", sId.ToString());
+                        AwardBounty(sId,sUserid, dIndBounty, "LETTER_WRITING", 0, sId.ToString(), "main", sId.ToString(),true);
                     }
                 }
             }
         }
+        public static double PriceInBBP(double USD)
+        {
+            double dCost = USD + 1 + 1; // 1$ for zinc, 1$ for handling
+            double dMarkup = dCost * .38;
+            double dTotal = dMarkup + dCost;
+            Zinc.BiblePayMouse.MouseOutput m = clsStaticHelper.GetCachedCryptoPrice("bbp");
+            if (m.BBPPrice > 0)
+            {
+                double dBBP = dTotal / m.BBPPrice;
+                dBBP = Math.Round(dBBP, 0);
+                return dBBP;
+            }
+            return 0;
+        }
+        
+        public static bool EnsureBBPUserExists(string BBPAddress)
+        {
+            if (BBPAddress.Length < 10)
+            {
+                clsStaticHelper.Log(" ensure bbp uer exist bad uer " + BBPAddress);
+                return false;
+            }
+            string sql = "Select count(*) ct from Users where UserName='" + BBPAddress + "'";
+            double nUserCount = GetScalarDouble(sql, "ct");
+            if (nUserCount==0)
+            {
+                // Add the user
+                string sOrg = "CDE6C938-9030-4BB1-8DFE-37FC20ABE1A0";
+                sql = "Insert into Users (id,username,password,Email,updated,added,deleted,organization) values (newid(),@Username,'[txtpass]','" + Guid.NewGuid().ToString() + "',getdate(),getdate(),0,'" + sOrg + "')";
+                sql = sql.Replace("@Username", "'" + BBPAddress + "'");
+                sql = sql.Replace("[txtpass]", modCryptography.Des3EncryptData(Guid.NewGuid().ToString().Substring(0,5)));
+                clsStaticHelper.Log(sql);
+                clsStaticHelper.mPD.Exec(sql);
+                return true;
+            }
+            return true;
+        }
 
+        public static Zinc.BiblePayMouse.payment_method TransferPaymentMethodIntoMouse()
+        {
+            Zinc.BiblePayMouse.payment_method pm1 = new Zinc.BiblePayMouse.payment_method();
+            pm1.expiration_month = (int)Convert.ToDouble(clsStaticHelper.AppSetting("mouse_expiration_month", "0"));
+            pm1.expiration_year = (int)Convert.ToDouble(clsStaticHelper.AppSetting("mouse_expiration_year", "0"));
+            pm1.name_on_card = clsStaticHelper.AppSetting("mouse_name_on_card", "");
+            pm1.number = clsStaticHelper.AppSetting("mouse_card_number", "");
+            pm1.security_code = clsStaticHelper.AppSetting("mouse_security_code", "");
+            pm1.use_gift = false;
+            return pm1;
+        }
+
+        public static Zinc.BiblePayMouse.billing_address TransferBillingAddressIntoMouse()
+        {
+            Zinc.BiblePayMouse.billing_address ba1 = new Zinc.BiblePayMouse.billing_address();
+            ba1.address_line1 = clsStaticHelper.AppSetting("mouse_billing_address_line1", "");
+            ba1.city = clsStaticHelper.AppSetting("mouse_billing_city", "");
+            ba1.state = clsStaticHelper.AppSetting("mouse_billing_state", "");
+            ba1.zip_code = clsStaticHelper.AppSetting("mouse_billing_zip_code", "");
+            ba1.last_name = clsStaticHelper.AppSetting("mouse_billing_last_name", "");
+            ba1.first_name = clsStaticHelper.AppSetting("mouse_billing_first_name", "");
+            ba1.country = clsStaticHelper.AppSetting("mouse_billing_country", "");
+            ba1.phone_number = clsStaticHelper.AppSetting("mouse_billing_phone_number", "");
+            return ba1;
+        }
+
+        public static Zinc.BiblePayMouse.retailer_credentials TransferRetailerCredentialsIntoMouse()
+        {
+            Zinc.BiblePayMouse.retailer_credentials rc1 = new Zinc.BiblePayMouse.retailer_credentials();
+            rc1.email = clsStaticHelper.AppSetting("mouse_amazon_retailer_credentials_email", "");
+            rc1.password = clsStaticHelper.AppSetting("mouse_amazon_retailer_credentials_password", "");
+            return rc1;
+        }
+
+        public static string GetNameElement(string data, int iPos)
+        {
+            string[] vData = data.Split(new string[] { " " }, StringSplitOptions.None);
+            if (vData.Length >= iPos)
+            {
+                return vData[iPos];
+            }
+
+            return "";
+        }
+
+
+        public static string GetBBPUserGuid(string BBPAddress)
+        {
+            string sql = "Select * from Users where UserName='" + BBPAddress + "'";
+            DataTable dt = clsStaticHelper.mPD.GetDataTable(sql);
+            if (dt.Rows.Count > 0)
+            {
+                return dt.Rows[0]["id"].ToString();
+            }
+            return "";
+        }
 
         public static void VerifySolutions(string sNetworkID)
         {
             string sql = "SELECT * from WORK where Validated is null and endtime is not null and networkid='" + sNetworkID + "'";
-            // If tip is null get it
             DataTable dt = mPD.GetDataTable(sql);
             int nLowTip = 1;
             int nLowTipThreshhold = 4;
             nLowTip = GetTipHeight(sNetworkID);
             int nHighTip = nLowTip + nLowTipThreshhold;
+            double nMaxNonce = GetNonceInfo(sNetworkID);
             for (int i = 0; i < dt.Rows.Count; i++)
             {
                 string sSolution = dt.Rows[i]["Solution"].ToString();
@@ -691,6 +1169,9 @@ namespace BiblePayPool2018
                     string sPrevBlockTime = vSolution[2];
                     string sPrevHeight = vSolution[3];
                     string sHashSolution = vSolution[4];
+                    string sNonce = "0";
+                    if (vSolution.Length > 13) sNonce = vSolution[13];
+                    double dNonce = GetDouble(sNonce);
                     string sID = dt.Rows[i]["id"].ToString();
 
                     int nTheirTip = Convert.ToInt32(sPrevHeight);
@@ -700,23 +1181,30 @@ namespace BiblePayPool2018
                         sError = "BLOCK_IS_STALE"; // <RESPONSE>BLOCK_IS_STALE</RESPONSE><ERROR>BLOCK_IS_STALE</ERROR><EOF></HTML>
                     }
                     //Verify solution matches
-                    string sOurSolution = clsStaticHelper.GetBibleHash(sBlockHash, sBlockTime, sPrevBlockTime, sPrevHeight, sNetworkID);
+                    string sOurSolution = clsStaticHelper.GetBibleHash(sBlockHash, sBlockTime, sPrevBlockTime, sPrevHeight, sNetworkID, sNonce);
                     if (sHashSolution.Length < 10 || sOurSolution.Length < 10)
                     {
                         sError = "MALFORMED_SOLUTION";
                     }
 
+                    if (dNonce > nMaxNonce && nLowTip > 23000)
+                    {
+                        sError = "BLOCK_SOLUTION_INVALID";
+                    }
+                    if (dNonce < 1 && nLowTip > 23000)
+                    {
+                        sError = "BLOCK_SOLUTION_INCOMPLETE";
+                    }
+                    
                     string sTargetHash = dt.Rows[i]["hashtarget"].ToString();
                     string sOurPrefix = sOurSolution.Substring(0, 10);
                     string sTargetPrefix = sTargetHash.Substring(0, 10);
                     decimal dOurPrefix = long.Parse(sOurPrefix, System.Globalization.NumberStyles.HexNumber);
                     decimal dTargPrefix = long.Parse(sTargetPrefix, System.Globalization.NumberStyles.HexNumber);
                     if (dOurPrefix > dTargPrefix) sError = "HIGH_HASH";
-                    
                     // They made it
                     double nHeight = Conversion.Val(sPrevHeight) + 1;
                     string sForensically = "run biblehash " + Strings.Trim(sBlockHash) + " " + Strings.Trim(sBlockTime) + " " + Strings.Trim(sPrevBlockTime) + " " + Strings.Trim(sPrevHeight);
-                    
                     if (sError == "")
                     {
                         string sql2 = "Update Work Set Solution2='" + sForensically + "', Validated=1 WHERE id = '" + sID + "'";
@@ -731,58 +1219,204 @@ namespace BiblePayPool2018
                 }
             }
         }
+        public static string GetWL(string sNetworkID)
+        {
+            string sHex = clsStaticHelper.GetGenericInfo0(sNetworkID, "walletlock", "result", "result");
 
+            return "";
+        }
+
+        public static string GetWLA(string sNetworkID, int iSecs)
+        {
+            string WLA = modCryptography.Des3DecryptData(clsStaticHelper.AppSetting("wlp", ""));
+            object[] oParSign = new object[2];
+            oParSign[0] = WLA;
+            oParSign[1] = iSecs;
+            string sHex = "";
+            try
+            {
+                sHex = clsStaticHelper.GetGenericInfo2(sNetworkID, "walletpassphrase", oParSign, "");
+            }
+            catch (Exception ex)
+            {
+                Log("Unlock " + ex.Message);
+            }
+            if (sHex.Length > 1)
+            {
+                clsStaticHelper.Log("Unlock Issue: " + sHex);
+            }
+            return "";
+        }
+
+        public static void AuditWithdrawals(string sNetworkID)
+        {
+            // Verify everything coming out of the wallet matches a requestlog guid
+            // if not, insert a record.  If so audit the record.
+            try
+            {
+                // Audit every 4 hours or so
+                string sql10 = "Select Added from metrics";
+                string a = clsStaticHelper.mPD.GetScalarString(sql10, "Added");
+                var diffInSeconds = (System.DateTime.Now - Convert.ToDateTime(a)).TotalSeconds;
+                if (diffInSeconds < (4 * 60 * 60)) return;
+                double dAdjTime = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                BitnetClient b = GetBitNet(sNetworkID);
+                object[] oParams = new object[2];
+                oParams[0] = "*";
+                oParams[1] = 988;
+                dynamic oOut = b.InvokeMethod("listtransactions", oParams);
+                // Loop Through the Vouts and get the recip ids and the amounts
+                string sOut = "";
+                double dMinTime = 991513008835;
+                double dMaxTime = 0;
+                double dWindow = 0;
+                double dAge = 0;
+                double dWalletDebit = 0;
+                for (int y = 0; y < 599; y++)
+                {
+                    string sPtr = "";
+                    try
+                    {
+                        sPtr = (oOut["result"][y] ?? "").ToString();
+                    }
+                    catch (Exception ey)
+                    {
+
+                    }
+
+                    if (sPtr != "")
+                    {
+                        double dAmount = clsStaticHelper.GetDouble(oOut["result"][y]["amount"]);
+                        string sAddress = "";
+                        string sCategory = oOut["result"][y]["category"].ToString();
+                        double dTime = clsStaticHelper.GetDouble(oOut["result"][y]["time"]);
+                        string sTxid = oOut["result"][y]["txid"].ToString();
+                        if (dTime < dMinTime) dMinTime = dTime;
+                        if (dTime > dMaxTime) dMaxTime = dTime;
+                        dWindow = dMaxTime - dMinTime; // When window surpasses one day, we no longer log the withdraw amount
+                        dAge = dAdjTime - dTime;
+                        if (oOut["result"][y]["address"] != null)
+                        {
+                            sAddress = oOut["result"][y]["address"].ToString();
+                        }
+                        else { sAddress = "?"; } //Happens when pool pays itself
+                        if (sCategory == "send")
+                        {
+                            string sql3 = "Select * From requestLog where txid = '" + sTxid + "'";
+                            DataTable rl = clsStaticHelper.mPD.GetDataTable(sql3);
+                            string sID = "";
+                            string sUserGuid = "";
+                            if (rl.Rows.Count > 0)
+                            {
+                                sUserGuid = rl.Rows[0]["userguid"].ToString();
+                                sID = rl.Rows[0]["id"].ToString();
+                            }
+                            if (sID.Length > 0)
+                            {
+                                sql3 = "Update RequestLog set Audited=1 where id = '" + sID + "'";
+                                clsStaticHelper.mPD.Exec(sql3);
+                            }
+                            else
+                            {
+                                // insert questionable record
+                                string sql2 = "Insert into RequestLog (username,userguid,address,id,txid,amount,added,network,ip,audited,questionable) values ('"
+                                        + "',null,'" + sAddress + "',null,'" + sTxid + "','" + dAmount.ToString()
+                                        + "',getdate(),'" + sNetworkID + "',null,1,1)";
+                                clsStaticHelper.mPD.Exec(sql2);
+                            }
+                            // Check the users balance
+                            string sUserName = "";
+                            double dBal = clsStaticHelper.GetUserBalance(sUserGuid, sNetworkID, ref sUserName);
+                            if (dBal <= .05)
+                            {
+                                sql3 = "Update RequestLog set Questionable=1 where TXID='" + sTxid + "'";
+                                clsStaticHelper.mPD.Exec(sql3);
+                            }
+                            // Adjust for UTC time
+                            double dCutoff = 86400 + (60 * 60 *  4);
+                            if (dWindow < dCutoff)  dWalletDebit += dAmount;
+                            if (dWindow > dCutoff) break;
+                        }
+
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                // Now grab the total mined in 24 hour,the total withdraws in 24 hour, and - the total withdraws from the wallet in 24 hour time period:
+                string sql = "Select sum(Amount) a from TransactionLog where transactionType='mining_credit' and added > getdate()-1 and networkid = '" + sNetworkID + "'";
+                double dCredit = clsStaticHelper.mPD.GetScalarDouble(sql, "a");
+                sql = "Select sum(Amount) a from TransactionLog where transactionType = 'withdrawal' and added > getdate()-1 and networkid='" + sNetworkID + "'";
+                double dDebit = clsStaticHelper.mPD.GetScalarDouble(sql, "a");
+                sql = "delete from Metrics where 1=1";
+                clsStaticHelper.mPD.Exec(sql);
+                sql = "Insert into Metrics (id,network,credits,debits,walletdebits,added) values (newid(),'" + sNetworkID + "','" + dCredit.ToString() + "','" 
+                    + dDebit.ToString() + "','" + dWalletDebit.ToString() + "',getdate())";
+                clsStaticHelper.mPD.Exec(sql);
+            }
+            catch (Exception ex)
+            {
+                clsStaticHelper.Log("Audit::" + ex.Message);
+            }
+        }
+
+
+        public static string Z(string reqLogId, string sAddress, double cAmt, string sNetworkID)
+        {
+            object[] oParams = new object[2];
+            oParams[0] = sAddress;
+            oParams[1] = cAmt.ToString();
+            BitnetClient bc = clsStaticHelper.GetBitNet(sNetworkID);
+            string sTxId = "";
+            string sql = "Select * From RequestLog where id = '" + reqLogId + "'";
+            DataTable dtRQ = clsStaticHelper.mPD.GetDataTable(sql);
+            string sName = "";
+            string sUserGuid = "";
+            if (cAmt > 40000) return "";
+            if (dtRQ.Rows.Count > 0)
+            {
+                double da2 = clsStaticHelper.GetDouble(dtRQ.Rows[0]["Amount"]);
+                sUserGuid = dtRQ.Rows[0]["userguid"].ToString();
+                sName = dtRQ.Rows[0]["username"].ToString();
+                sql = "update users set withdraws = isnull(withdraws, 0) + 1 where id='" + sUserGuid + "'";
+                clsStaticHelper.mPD.Exec(sql);
+                if (cAmt == da2)
+                {
+                    GetWLA(sNetworkID, 45);
+                    dynamic oOut = bc.InvokeMethod("sendtoaddress", oParams);
+                    sTxId = oOut["result"].ToString();
+                    GetWL(sNetworkID);
+                }
+            }
+            try
+            {
+                string sIP = (HttpContext.Current.Request.UserHostAddress ?? "").ToString();
+                sql = "Insert into SentMoney (username,userguid,address,id,txid,amount,added,network,ip,requestLogId) values ('"
+                    + sName + "','" + sUserGuid + "','" + sAddress + "',newid(),'"
+                    + sTxId + "','" + cAmt.ToString() + "',getdate(),'" + sNetworkID + "','" + sIP + "','" + reqLogId + "')";
+                clsStaticHelper.mPD.Exec(sql);
+            }
+            catch (Exception ex)
+            {
+                clsStaticHelper.Log(ex.Message);
+            }
+            return sTxId;
+        }
 
 
         public static void PayBlockParticipants(string sNetworkID)
         {
-            // TODO: Make this a cursor
-            //Pay out any funds marked as unpaid and add a transaction to transactionLog
-            string sql = "Select id,height,userid,username,subsidy,stats From Block_Distribution where paid is null and networkid = '" + sNetworkID + "'";
-            DataTable dt = new DataTable();
-            dt = mPD.GetDataTable(sql);
-            for (int y = 0; y <= dt.Rows.Count - 1; y++)
-            {
-                string sBdId = dt.Rows[y]["id"].ToString();
-                string sUserName = dt.Rows[y]["username"].ToString();
-                double cSubsidy = Convert.ToDouble(dt.Rows[y]["subsidy"].ToString());
-                string sUserId = dt.Rows[y]["userid"].ToString();
-                string sStats = dt.Rows[y]["stats"].ToString();
-                if (sStats.Length > 1000) sStats = sStats.Substring(0, 1000);
-                string sLUN = "";
-                double cBalance = GetUserBalance(sUserId, sNetworkID, ref sLUN);
-                double cNewBalance = cBalance + cSubsidy;
-                dynamic sHeight = dt.Rows[y]["height"].ToString();
-                //Do this as a transaction, since TransactionLog has a unique constraint on the transactionid:
-                string sql2 = "";
-
-                try
-                {
-                    sql2 = "Insert into transactionlog (id,height,transactionid,username,userid,transactiontype,destination,amount,oldbalance,newbalance,added,updated,rake,networkid,notes)" + " values (newid(),'" + Strings.Trim(sHeight) + "','" + Strings.Trim(sBdId) + "','" + sUserName + "','" 
-                        + sUserId + "','MINING_CREDIT','" + sUserId + "','" 
-                        + Strings.Trim(cSubsidy.ToString()) + "','" 
-                        + Strings.Trim(cBalance.ToString()) + "','" 
-                        + Strings.Trim(cNewBalance.ToString()) 
-                        + "',getdate(),getdate(),0,'" + sNetworkID + "','" + Strings.Trim(sStats) + "')";
-                    mPD.Exec(sql2);
-                    // Update balance now if the tx was inserted: (TODO: Add stored proc with transaction to update the user balance)
-                    sql2 = "Update Users set balance" + sNetworkID + " = '" + Strings.Trim(cNewBalance.ToString()) + "' where id = '" + Strings.Trim(sUserId) + "'";
-                    mPD.Exec(sql2);
-                    // Mark the record Paid
-                    sql2 = "Update Block_Distribution set Paid = getdate() where id = '" + sBdId + "'";
-                    mPD.Exec(sql2);
-                }
-                catch (Exception ex)
-                {
-                    clsStaticHelper.Log("Unable to insert new record in tx log : " + ex.Message + ", " + sql2);
-                }
-            }
+            // Command Timeout Expired:
+            string sql3 = "exec payBlockParticipants '" + sNetworkID + "'";
+            mPD.ExecWithTimeout(sql3, 11000);
+            return;
         }
 
         public static void AddBlockDistribution(long nHeight, double cBlockSubsidy, string sNetworkID)
         {
             //Ensure this block distribution does not yet exist
-            string sql = "select count(*) as ct from block_distribution where height='" + nHeight.ToString() + "'";
+            string sql = "select count(*) as ct from block_distribution where height='" + nHeight.ToString() + "' and networkid='" + sNetworkID + "'";
             DataTable dt = new DataTable();
             dt = mPD.GetDataTable(sql);
             if (dt.Rows.Count > 0)
@@ -905,7 +1539,6 @@ namespace BiblePayPool2018
             return sSetting;
         }
 
-
         public static void Log(string sData)
         {
             try
@@ -923,7 +1556,6 @@ namespace BiblePayPool2018
                 string sMsg = ex.Message;
             }
         }
-
         
         public static string NotNull(object o)
         {
@@ -954,6 +1586,24 @@ namespace BiblePayPool2018
         }
     }
 
+    public static class Ext
+    {
+        public static double ToDouble(object o)
+        {
+            try
+            {
+                if (o == null) return 0;
+                if (o.ToString() == "") return 0;
+                return Convert.ToDouble(o.ToString());
+            }
+            catch (Exception ex)
+            {
+                clsStaticHelper.Log("Invald format " + ex.Message + "," + o.ToString());
+                return 0;
+            }
+        }
+    }
+
     public class MyWebClient : System.Net.WebClient
     {
         protected override System.Net.WebRequest GetWebRequest(Uri uri)
@@ -963,5 +1613,4 @@ namespace BiblePayPool2018
             return w;
         }
     }
-    
 }

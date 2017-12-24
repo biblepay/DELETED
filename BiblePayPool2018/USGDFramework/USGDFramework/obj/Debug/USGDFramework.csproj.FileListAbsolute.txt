@@ -1,0 +1,6 @@
+C:\code\USGDFramework\USGDFramework\USGDFramework\bin\Debug\USGDFramework.dll
+C:\code\USGDFramework\USGDFramework\USGDFramework\bin\Debug\USGDFramework.pdb
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Debug\USGDFramework.dll
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Debug\USGDFramework.pdb
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Debug\USGDFramework.csproj.CoreCompileInputs.cache
+C:\code\USGDFramework\USGDFramework\USGDFramework\obj\Debug\USGDFramework.csprojResolveAssemblyReference.cache

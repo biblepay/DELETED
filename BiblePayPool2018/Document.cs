@@ -19,7 +19,7 @@ namespace BiblePayPool2018
         public WebReply DocumentSearch()
         {
             Section Search = Sys.RenderSection("Document Search", "Documents", 1, this, SystemObject.SectionMode.Search);
-            GodEdit geBtnB = Search.AddButton("btnSearch", "Search");
+            Edit geBtnB = Search.AddButton("btnSearch", "Search");
             return Search.Render(this, true);
         }
 
@@ -33,7 +33,7 @@ namespace BiblePayPool2018
         {
 
             Section Add = Sys.RenderSection("Document Add", "Documents", 1, this, SystemObject.SectionMode.Edit);
-            GodEdit ctlUpload = new GodEdit("Document Add", GodEdit.GEType.UploadControl, "btnSave", "Save", Sys);
+            Edit ctlUpload = new Edit("Document Add", Edit.GEType.UploadControl, "btnSave", "Save", Sys);
             ctlUpload.Id = this.ViewGuid;
             ctlUpload.ParentGuid = this.ParentID;
             Add.AddControl(ctlUpload);
@@ -110,21 +110,17 @@ namespace BiblePayPool2018
 
             for (int x = 0; x < iConditionCount; x++)
             {
-                GodEdit ddFields = new GodEdit("Phase3", "Fields"+x.ToString(), Sys);
-                ddFields.Type = GodEdit.GEType.Lookup;
+                Edit ddFields = new Edit("Phase3", "Fields"+x.ToString(), Sys);
+                ddFields.Type = Edit.GEType.Lookup;
                 ddFields.CaptionText = "Field:";
                 ddFields.LookupValues = ddFields.ConvertStringToLookupList("Address;City;State;Zip;Phone");
                 s.AddControl(ddFields);
                 string sValueOfFieldsControl = Sys.GetObjectValue("Phase3", "Fields" + x.ToString());
                 
-                GodEdit ddConditions = new GodEdit("Phase3", "Conditions"+x.ToString(), Sys);
-                ddConditions.Type = GodEdit.GEType.Lookup;
+                Edit ddConditions = new Edit("Phase3", "Conditions"+x.ToString(), Sys);
+                ddConditions.Type = Edit.GEType.Lookup;
                 ddConditions.CaptionText = "Conditions:";
-
-
                 ddConditions.LookupValues = new List<SystemObject.LookupValue>();
-     
-
                 SystemObject.LookupValue i1 = new SystemObject.LookupValue();
                 i1.ID = "Underlying ID";
                 i1.Value = "DisplayValue";
@@ -138,8 +134,8 @@ namespace BiblePayPool2018
                 i2.Caption = "CaptionTwo";
                 ddConditions.LookupValues.Add(i2);
                 s.AddControl(ddConditions);
-                GodEdit txtValue = new GodEdit("Phase3", "SelectedValue"+x.ToString(), Sys);
-                txtValue.Type = GodEdit.GEType.Text;
+                Edit txtValue = new Edit("Phase3", "SelectedValue"+x.ToString(), Sys);
+                txtValue.Type = Edit.GEType.Text;
                 txtValue.CaptionText = "Selected Value:";
                 string sValueOfSelected = Sys.GetObjectValue("Phase3", "SelectedValue" + x.ToString());
                 s.AddControl(txtValue);
@@ -161,7 +157,7 @@ namespace BiblePayPool2018
         public WebReply btnLightbox_Click()
         {
                 Section s = new Section("Lightbox",1, Sys, this);
-                GodEdit g = new GodEdit("Lightbox",GodEdit.GEType.Lightbox,Sys);
+                Edit g = new Edit("Lightbox",Edit.GEType.Lightbox,Sys);
                 g.Name = "Lightbox";
                 g.CaptionText = "Open";
                 g.URL = "images/Data.png";
