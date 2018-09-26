@@ -98,12 +98,12 @@ namespace USGDFramework
             {
                 mm.To.Add(new MailAddress(vTo[x]));
             }
-            SmtpClient smtp = new SmtpClient(ConfigurationSettings.AppSettings["MailHost"], 587);
+            SmtpClient smtp = new SmtpClient(clsStaticHelper.GetConfig("MailHost"));
 
             var _with1 = smtp;
             _with1.EnableSsl = true;
-            _with1.Credentials = new System.Net.NetworkCredential(ConfigurationSettings.AppSettings["FromEmail"], 
-                ConfigurationSettings.AppSettings["SMTPPassword"]);
+            _with1.Credentials = new System.Net.NetworkCredential(clsStaticHelper.GetConfig("FromEmail"), 
+                clsStaticHelper.GetConfig("SMTPPassword_E"));
             mm.Subject = MessageSubject;
             mm.Body = MessageBody;
             mm.IsBodyHtml = true;

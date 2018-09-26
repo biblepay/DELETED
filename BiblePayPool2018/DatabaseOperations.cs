@@ -26,7 +26,7 @@ namespace BiblePayPool2018
         {
             Microsoft.SqlServer.Management.Common.ServerConnection se = new ServerConnection();
             USGDFramework.Data d = new USGDFramework.Data();
-            se.ConnectionString = d.sSQLConn;
+            se.ConnectionString = d.sSQLConn();
             se.Connect();
             Server s = new Server(se);
             Database db = new Database();
@@ -71,11 +71,11 @@ namespace BiblePayPool2018
             // Create the target Database
             string sql = "CREATE DATABASE " + ToDatabaseName;
             USGDFramework.Data d = new USGDFramework.Data();
-            d.Exec(sql);
+            d.Exec2(sql);
             string sSchema = ScriptDatabase(sFromDatabaseName, ToDatabaseName);
             sql = "USE " + ToDatabaseName;
-            d.Exec(sql);
-            d.Exec(sSchema);
+            d.Exec2(sql);
+            d.Exec2(sSchema);
             // For each table in Source database, insert a mirror image of data in the destination, that is NOT in the destination already.
             List<DataTable> lTables = GetSchemas(sFromDatabaseName);
             foreach (DataTable lTable in lTables)
@@ -87,7 +87,7 @@ namespace BiblePayPool2018
                 string sInsert = "INSERT INTO " + sTargetTable + " (" + sSourceFields + ")";
                 string sFrom = "SELECT " + sSourceFields + " FROM " + sSourceTable + " WHERE ID NOT IN (Select ID from " + sTargetTable + ")";
                 string sSQL = sInsert + "\r\n" + sFrom;
-                d.Exec(sSQL);
+                d.Exec2(sSQL);
             }
         }
 
@@ -101,7 +101,7 @@ namespace BiblePayPool2018
         {
             Microsoft.SqlServer.Management.Common.ServerConnection  se = new ServerConnection();
             USGDFramework.Data d = new USGDFramework.Data();
-            se.ConnectionString = d.sSQLConn;
+            se.ConnectionString = d.sSQLConn();
             se.Connect();
             Server s = new Server(se);
             Database db = new Database();
@@ -147,7 +147,7 @@ namespace BiblePayPool2018
             bkpDBFull.Complete += Backup_Completed;
             Microsoft.SqlServer.Management.Common.ServerConnection  se = new ServerConnection();
             USGDFramework.Data d = new USGDFramework.Data();
-            se.ConnectionString = d.sSQLConn;
+            se.ConnectionString = d.sSQLConn();
             se.Connect();
             Server s = new Server(se);
             bkpDBFull.SqlBackup(s);
@@ -159,12 +159,12 @@ namespace BiblePayPool2018
             Restore restDb = new Restore();
             restDb.Action = RestoreActionType.Database;
             restDb.Database = "biblepaypool";
-            restDb.Devices.AddDevice(@"c:\MyBiblePayPackup.bak", DeviceType.File);
+            restDb.Devices.AddDevice(@"c:\MyBiblePayBackup.bak", DeviceType.File);
             restDb.PercentComplete  += CompletionStatusInPercent;
             restDb.Complete += Backup_Completed;
             Microsoft.SqlServer.Management.Common.ServerConnection se = new ServerConnection();
             USGDFramework.Data d = new USGDFramework.Data();
-            se.ConnectionString = d.sSQLConn;
+            se.ConnectionString = d.sSQLConn();
             se.Connect();
             Server s = new Server(se);
             restDb.SqlRestore(s);

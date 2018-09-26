@@ -13,7 +13,7 @@ namespace BiblePayPool2018
         protected void Page_Load(object sender, EventArgs e)
         {
             SystemObject sys = (SystemObject)Context.Session["Sys"];
-            string sTemp = sys.AppSetting("TEMP", "c:\\code\\temp\\");
+            string sTemp = USGDFramework.clsStaticHelper.GetConfig("TEMP");
             string sPath = sTemp + Request.QueryString["file"];
             FileInfo tgtFile =  new FileInfo(sPath);
             Response.Clear();

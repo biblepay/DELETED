@@ -49,7 +49,7 @@ namespace BiblePayPool2018
             s1.AddControl(ddName);
             string sSelectedName = Sys.GetObjectValue("SettingsEdit", "Name");
             string sSql = "Select Value from Setting where Context='" + sSelectedContext + "' and Name='" + sSelectedName + "'";
-            System.Data.DataTable dt1 = Sys._data.GetDataTable(sSql);
+            System.Data.DataTable dt1 = Sys._data.GetDataTable2(sSql);
             string sValue = "";
 
             if (dt1.Rows.Count > 0) 

@@ -17,14 +17,14 @@ namespace BiblePayPool2018
         {
 
             string sHTML = "<div id='" + sID + "' title='" + Title + "'>"
-                + "<p><span class='ui-icon ui-icon-circle-check' style='float:left; margin:0 7px 50px 0;'></span>"
+                + "<p><span class='xui-icon xui-icon-circle-check' style='float:left; margin:0 7px 50px 0;'></span>"
                 + Body + " </p></div>";       
             string sWH = String.Empty;
             if (Width > 0 || Height > 0)
             {
                 sWH = "width: " + Width.ToString() + ", height: " + Height.ToString() + ",";
             }
-            string sOpt = "var opt = {        autoOpen: false,   position: { my: 'top', at: 'top+150' },     modal: true, " + sWH + "title: '" + sID + "' };";
+            string sOpt = "var opt = {        autoOpen: false,   position: { my: 'top', at: 'top+150' },     modal: true, " + sWH + "title: '" + Title + "' };";
             string sJavascript = sOpt + " var theDialog = $('#" + sID + "').dialog(opt); theDialog.dialog('open');";
             WebReply wr = new WebReply(sHTML, sJavascript,sID, true);
             return wr;
@@ -81,7 +81,7 @@ namespace BiblePayPool2018
             string sHTML = "<div id='" + sDialogID + "' title='" + Title + "'>"
                 + "<p><span class='ui-icon ui-icon-circle-check' style='float:left; margin:0 7px 50px 0;'></span>"
                  + Body + " </p><p>" + sButtons + "</p>" + sHidden + "<p></div>";
-            string sOpt = "var opt = {        autoOpen: false,        modal: true,        width: 550,        height:350,        title: '" + sDialogID + "' };";
+            string sOpt = "var opt = {        autoOpen: false,        modal: true,        width: 550,        height:350,        title: '" + Title + "' };";
             string sJavascript = sOpt + " var theDialog = $('#" + sDialogID + "').dialog(opt); theDialog.dialog('open');";
             WebReply wr = new WebReply(sHTML, sJavascript,sSectionName, true);
             return wr;

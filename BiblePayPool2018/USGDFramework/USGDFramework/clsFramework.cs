@@ -1,5 +1,5 @@
 ﻿using System;
-using ConfigurationSettings = System.Configuration.ConfigurationManager;
+
 using System.Data.SqlClient;
 using System.Data.Sql;
 using System.Data;
@@ -9,14 +9,60 @@ using System.Net;
 
 namespace USGDFramework
 {
-    
+    public static class clsStaticHelper
+    {
+
+        public static string GetConfig(string key)
+        {
+            // Tested
+            try
+            {
+                string sPath = "c:\\inetpub\\wwwroot\\biblepaypool2018\\biblepaypool.ini";
+
+                using (System.IO.StreamReader sr = new System.IO.StreamReader(sPath))
+                {
+                    while (sr.EndOfStream == false)
+                    {
+                        string sTemp = sr.ReadLine();
+                        int iPos = sTemp.IndexOf("=");
+                        if (iPos > 0)
+                        {
+                            string sIniKey = sTemp.Substring(0, iPos);
+                            string sIniValue = sTemp.Substring(iPos + 1, sTemp.Length - iPos - 1);
+                            sIniValue = sIniValue.Replace("\"", "");
+                            if (sIniKey.ToLower().Contains("_e"))
+                            {
+                                sIniValue = modCryptography.Des3DecryptData2(sIniValue);
+                            }
+                            if (key.ToLower() == sIniKey.ToLower())
+                            {
+                                sr.Close();
+                                return sIniValue;
+                            }
+                        }
+                    }
+                    sr.Close();
+                }
+            }
+            catch(Exception ex)
+            {
+                //
+            }
+            
+            return "";
+        }
+
+    }
     public class Data
     {
-   
-        public string sSQLConn = "Server=" + ConfigurationSettings.AppSettings["DatabaseHost"]
-            + ";" + "Database=" + ConfigurationSettings.AppSettings["DatabaseName"]
-            + ";MultipleActiveResultSets=true;" + "Uid=" + ConfigurationSettings.AppSettings["DatabaseUser"]
-            + ";pwd=" + ConfigurationSettings.AppSettings["DatabasePass"];
+
+        public string sSQLConn()
+        {
+            return "Server=" + clsStaticHelper.GetConfig("DatabaseHost")
+            + ";" + "Database=" + clsStaticHelper.GetConfig("DatabaseName")
+            + ";MultipleActiveResultSets=true;" + "Uid=" + clsStaticHelper.GetConfig("DatabaseUser")
+            + ";pwd=" + clsStaticHelper.GetConfig("DatabasePass_E");
+        }
 
 	    public Data()
 	    {
@@ -25,14 +71,15 @@ namespace USGDFramework
 	    }
 
 
-        public void ExecResilient(string sql)
+        public void ExecResilient2(string sql,bool bLog=true)
         {
             // All this does is try up to 3 times in case a deadlock occurs during execution- and only logs the error on the last try; dont use this anywhere you would have a duplication issue
+            if (bLog)             TxLog(sql);
             for (int i = 0; i < 3; i++)
             {
                 try
                 {
-                    using (SqlConnection con = new SqlConnection(sSQLConn))
+                    using (SqlConnection con = new SqlConnection(sSQLConn()))
                     {
                         con.Open();
                         SqlCommand myCommand = new SqlCommand(sql, con);
@@ -45,17 +92,24 @@ namespace USGDFramework
                 {
                     if (i == 2)
                     {
+                        if (ex.Message.Contains("Update Work Set") && ex.Message.Contains("was deadlocked on lock resources"))
+                        {
+                            // Rerun the transaction.
+                            return;
+                        }
+
                         Log(" EXECRESILIENT: " + sql + "," + ex.Message);
                     }
                 }
             }
         }
 
-        public void ExecWithThrow(string sql, bool bLogErr)
+        public void ExecWithThrow2(string sql, bool bLogErr, bool bLog=true)
         {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                if (bLog)                 TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
                     SqlCommand myCommand = new SqlCommand(sql, con);
@@ -70,30 +124,43 @@ namespace USGDFramework
             }
 
         }
-        public void Exec(string sql)
+        public void Exec2(string sql, bool bLog=true, bool bLogError = true)
         {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                if (bLog)  TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
                     SqlCommand myCommand = new SqlCommand(sql, con);
-                    
+
                     myCommand.ExecuteNonQuery();
                 }
 
             }
             catch (Exception ex)
             {
-                Log(" EXEC: " + sql + "," + ex.Message);
+                //EXEC: exec InsWork 'main','Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding.
+                if (sql.Contains("InsWork") && ex.Message.Contains("Execution Timeout Expired"))
+                {
+                    // Nothing we can do, server is deadlocking, maybe upgrade the server.
+                    return;
+                }
+                if (sql.Contains("Insert into Block_distribution") && ex.Message.Contains("Violation of UNIQUE KEY constraint"))
+                {
+                    return;
+                }
+                
+                if (bLogError)                 Log(" EXEC: " + sql + "," + ex.Message);
             }
 
         }
-        public void ExecWithTimeout(string sql, double lTimeout)
+        public void ExecWithTimeout2(string sql, double lTimeout)
 	    {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
                     SqlCommand myCommand = new SqlCommand(sql, con);
@@ -109,11 +176,12 @@ namespace USGDFramework
 
 	    }
 
-        public DataTable GetDataTableWithNoLog(string sql)
+        public DataTable GetDataTableWithNoLog2(string sql)
         {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
 
@@ -131,11 +199,12 @@ namespace USGDFramework
             return dt;
         }
 
-        public DataTable GetDataTable(string sql)
+        public DataTable GetDataTable2(string sql,bool bLog=true)
         {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                if (bLog)                 TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
 
@@ -154,9 +223,10 @@ namespace USGDFramework
         }
 
 
-        public double GetScalarDoubleWithNoLog(string sql, object vCol)
+        public double GetScalarDoubleWithNoLog2(string sql, object vCol)
         {
-            DataTable dt1 = GetDataTableWithNoLog(sql);
+            TxLog(sql);
+            DataTable dt1 = GetDataTableWithNoLog2(sql);
             try
             {
                 if (dt1.Rows.Count > 0)
@@ -180,9 +250,10 @@ namespace USGDFramework
             return 0;
         }
 
-        public double GetScalarDouble(string sql, object vCol)
+        public double GetScalarDouble2(string sql, object vCol, bool bLog  = true)
         {
-            DataTable dt1 = GetDataTable(sql);
+            TxLog(sql);
+            DataTable dt1 = GetDataTable2(sql,bLog);
             try
             {
                 if (dt1.Rows.Count > 0)
@@ -207,9 +278,10 @@ namespace USGDFramework
         }
 
 
-        public string GetScalarString(string sql, object vCol)
+        public string GetScalarString2(string sql, object vCol, bool bLog=true)
         {
-            DataTable dt1 = GetDataTable(sql);
+            if (bLog) TxLog(sql);
+            DataTable dt1 = GetDataTable2(sql);
             try
             {
                 if (dt1.Rows.Count > 0)
@@ -235,11 +307,12 @@ namespace USGDFramework
 
 
 
-        public SqlDataReader GetDataReader(string sql)
+        public SqlDataReader GetDataReader2(string sql)
 	    {
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
                     SqlDataReader myReader = default(SqlDataReader);
@@ -257,16 +330,19 @@ namespace USGDFramework
 	    }
 
         
-        public string ReadFirstRow(string sql, object vCol)
+        public string ReadFirstRow2(string sql, object vCol, bool bLog = true)
 	    {
 
             try
             {
-                using (SqlConnection con = new SqlConnection(sSQLConn))
+                if (bLog)                 TxLog(sql);
+                using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
                     using (SqlCommand cmd = new SqlCommand(sql, con))
                     {
+                        //cmd.CommandTimeout = 6000;
+
                         SqlDataReader dr = cmd.ExecuteReader();
                         if (!dr.HasRows | dr.FieldCount == 0) return string.Empty;
                         while (dr.Read())
@@ -291,20 +367,37 @@ namespace USGDFramework
             return "";
         }
         
+        
 
-        public static string AppSetting(string sName, string sDefault)
+
+
+        public static void TxLog(string sData)
         {
-            string sSetting = (ConfigurationSettings.AppSettings[sName] ?? String.Empty).ToString();
-            if (sSetting == String.Empty) return sDefault;
-            return sSetting;
+            try
+            {
+                string sPath = null;
+                string sDocRoot = clsStaticHelper.GetConfig("LogPath");
+                string sToday = DateTime.Now.ToString("MMddyyyy");
+                
+                sPath = sDocRoot + "txlog"+ sToday + ".dat";
+                System.IO.StreamWriter sw = new System.IO.StreamWriter(sPath, true);
+                string Timestamp = DateTime.Now.ToString();
+                sw.WriteLine(Timestamp + ", " + sData);
+                sw.Close();
+            }
+            catch (Exception ex)
+            {
+                string sMsg = ex.Message;
+            }
         }
+
 
         public static void Log(string sData)
         {
             try
             {
                 string sPath = null;
-                string sDocRoot = AppSetting("LogPath", "c:\\inetpub\\wwwroot\\");
+                string sDocRoot = clsStaticHelper.GetConfig("LogPath");
                 sPath = sDocRoot + "pool2018.dat";
                 System.IO.StreamWriter sw = new System.IO.StreamWriter(sPath, true);
                 string Timestamp = DateTime.Now.ToString();
@@ -318,7 +411,7 @@ namespace USGDFramework
         }
         
 
-        private string GetMenuRow(string sMenuName, string sLink, bool bActiveHasSub, bool bHasSub, bool bLIEndTag, 
+        private string GetMenuRow(string sGuid, string sMenuName, string sLink, bool bActiveHasSub, bool bHasSub, bool bLIEndTag, 
             string sButtonID, string sMenuClick, long ExternalLink, string sMethod)
         {
 
@@ -341,7 +434,7 @@ namespace USGDFramework
                 //Display the resource
                 sOnclick = sLink;
                 sOnclick = "validate(this,'link','" + sLink + "');";
-                sOnclick = "FrameNav('" + sLink + "','" + sMethod + "');";
+                sOnclick = "FrameNav('" + sLink + "','" + sMethod + "','" + sGuid + "');";
                 if (sLink.StartsWith("http"))
                 {
                     sOnclick = "window.navigate('" + sLink + "');";
@@ -354,7 +447,7 @@ namespace USGDFramework
                 //Fire the event into the .NET app
                 sOnclick = sLink;
                 sOnclick = "validate(this,'link','" + sLink + "');";
-                sOnclick = "FrameNav('" + sLink + "','" + sMethod + "');";
+                sOnclick = "FrameNav('" + sLink + "','" + sMethod + "','" + sGuid + "');";
             }
             sOut += "<li " + sClass + "><a onclick=" + Strings.Chr(34) + sOnclick + Strings.Chr(34) + ">" + "<span>" + sMenuName + "</span></a>" + Constants.vbCrLf;
             if (bLIEndTag)
@@ -367,9 +460,15 @@ namespace USGDFramework
         {
             // Depending on context, filter the menu
             bool bAcc = (sURL1.ToUpper().Contains("ACCOUNTABILITY"));
-            string sWhere = bAcc ? " where Accountability=1" : " ";
-            string sql = "select * from menu " + sWhere + " order by hierarchy,ordinal";
-            DataTable dt = GetDataTable(sql);
+            bool bDAHF = (sURL1.ToUpper().Contains("DAHF"));
+
+            string sWhere = bAcc ? " where Accountability=1 and DAHF <> 1" : " where DAHF <> 1";
+            if (bDAHF) sWhere = " where DAHF=1";
+
+            string sql = "select * from menu " + sWhere + " order by hierarchy, ordinal";
+            string sUser = USGDFramework.clsStaticHelper.GetConfig("DatabaseName");
+            
+            DataTable dt = GetDataTable2(sql);
             string sOut = "<div id='cssmenu'> <UL> ";
             string[] vHierarchy = null;
             string sArgs = null;
@@ -394,6 +493,7 @@ namespace USGDFramework
                     }
                     string sURL = dt.Rows[y]["Classname"].ToString();
                     string sMethod = (dt.Rows[y]["Method"] ?? "").ToString();
+                    string sGuid = (dt.Rows[y]["id"].ToString());
                     long ExternalLink = 1;
                     sArgs = sURL;
                     if (x == 0 & sLastRootMenuName != sRootMenuName)
@@ -403,12 +503,12 @@ namespace USGDFramework
                             bULOpen = false;
                             sOut += "</UL>";
                         }
-                        sOut += GetMenuRow(sMenuName, sURL, true, false, false, sButtonID, sArgs, ExternalLink,sMethod);
+                        sOut += GetMenuRow(sGuid,sMenuName, sURL, true, false, false, sButtonID, sArgs, ExternalLink,sMethod);
                     }
                     else if (x != 0)
                     {
                         if (!bULOpen) { sOut += "<UL>"; bULOpen = true; }
-                        sOut += GetMenuRow(sMenuName, sURL, false, false, false, sButtonID, sArgs, ExternalLink,sMethod);
+                        sOut += GetMenuRow(sGuid,sMenuName, sURL, false, false, false, sButtonID, sArgs, ExternalLink,sMethod);
                     }
                     if (x == 0)
                         sLastRootMenuName = sRootMenuName;

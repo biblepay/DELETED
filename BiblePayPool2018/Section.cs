@@ -153,7 +153,7 @@ namespace BiblePayPool2018
                sNarrative = "Customize";
             }
             string FriendlyName = this.Name;
-            if (!this.MaskSectionMode) FriendlyName += " <font size=1>[" + sNarrative + "]</font>"; 
+            if (!this.MaskSectionMode && false) FriendlyName += " <font size=1>[" + sNarrative + "]</font>"; 
 
             
             string sDivClass = "class='dragContent'";
@@ -314,6 +314,7 @@ namespace BiblePayPool2018
             Image,
             SortableList,
             DIV,
+            Radio,
             Label,
             HTML,
             Lightbox,
@@ -361,7 +362,9 @@ namespace BiblePayPool2018
         public string ColSpan2 { get; set; }
         public string TextBoxStyle { get; set; }
         public string TextBoxAttribute { get; set; }
+        public string RadioName { get; set; }
         public string sAltGuid { get; set; }
+        public bool ExtraTD { get; set; }
         private int iCounter = 0;
         private string sCumulativeHTML = "";
         public string TdWidth { get; set; }
@@ -530,7 +533,20 @@ namespace BiblePayPool2018
                 WebReply wr1 = new WebReply();
                 wr1.AddWebReply(sOut, "",Section,false);
                 return wr1;
-     
+            }
+            //<input type="radio" name="gender" value="male" checked> Male <br>
+            if (Type == GEType.Radio)
+            {
+                string sSize = size > 0 ? "size='" + size.ToString() + "'" : String.Empty;
+                string sOut = "<td " + ColSpan + " " + Width + "><span>" 
+                    +  "</span></td><td " + ColSpan2 + "><input class='" 
+                    + "' type='" + Type + "' " + " name='"
+                    + RadioName + "' " + sSize + " id='" + Name + "' " 
+                    + TextBoxAttribute + " style='" + TextBoxStyle + "' value='" + TextBoxValue + "'>"  + CaptionText + "</input><label class='"
+                    + sFlyout + "' for='" + Name + "'>" + ErrorText + "</label></td>";
+                WebReply wr1 = new WebReply();
+                wr1.AddWebReply(sOut, "", Section, false);
+                return wr1;
             }
             else if (Type==GEType.Image)
             {
@@ -557,7 +573,7 @@ namespace BiblePayPool2018
             }
             else if (Type==GEType.HTML)
             {
-                string sOut = "<div name='"
+                string sOut = "<div style='width:100%;' name='"
                       + Name + "' id='" + Name + "'>" + HTML + "</div>";
                 WebReply wr1 = new WebReply();
                 wr1.AddWebReply(sOut,Javascript, Section, false);
@@ -777,7 +793,6 @@ namespace BiblePayPool2018
             }
             else if (Type==GEType.Button)
             {
-                // 11-3-2017
                 string myClass = caller.GetType().ToString();
                 StackTrace stackTrace = new StackTrace();           
                 StackFrame[] stackFrames = stackTrace.GetFrames();  // get method calls (frames)
@@ -787,7 +802,7 @@ namespace BiblePayPool2018
                 sMyMethod = Method;
                 string sJavascriptSuffix = IsInDialog ? "$(this).closest('.ui-dialog-content').dialog('close'); " : String.Empty;
                 string sOut = "";
-
+                if (ExtraTD) sOut += "<td>&nbsp;</td>";
                 if (!MaskBeginTD) sOut += "<td colspan='" + ColSpan + "'>";
                     sOut += "<input class=roundbutton type=button name='" + Name + "' id='" + Name + "' value='"
                     + CaptionText + "' onclick=\"" + sJavascriptSuffix + "postdiv(this,'buttonevent','" + myClass + "','" + sMyMethod + "','" + sAltGuid + "');\"  />";

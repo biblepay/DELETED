@@ -1,17 +1,57 @@
+
+:root{
+
+    /*crimson*/
+    --bgcolor: #8f143C; 
+    --rightgradient: #0f0000;    
+    --fontcolor: gold;
+    --textcolor: gold;
+    --gradientcolor: #0f1400;
+    --gradientcolor2: #3f1400;
+    --fontcolorheading: gold;
+    /* css flyout menu */
+    --leftcolor: #ff143c;
+    /* css flyout mid section */
+    /*121212*/
+    --midcolor: #0f0400;
+    --leftbgcolor: #7a041c;   
+    --alternatedbackground: #4f1400;
+    --nonalternatedbackground: #8f143c;
+}
+
  
     /*  BiblePay - 04-18-2017 - Allow weblist to alternate background colors:
         Define the background color for all the ODD background rows  */
     .TFtable tr:nth-child(odd)
     { 
-		//background: #b8d1f3;
+		//xbackground: #b8d1f3;
      }
      /*  Define the background color for all the EVEN background rows  */
 	.TFtable tr:nth-child(even)
     {
-		background: #001515;
-		background: grey;
+		//xbackground: #001515;
+		background: #ffeeff;
+		background: var(--alternatedbackground);
     }
-    
+
+.Alternated 
+{
+    background: #ffefff;
+    background: var(--alternatedbackground) !important;
+}
+
+.NonAlternated
+{
+    background: #ffffff;
+    background: var(--nonalternatedbackground) !important;
+}
+
+.Head1 
+{
+    background: linear-gradient(to bottom, white 0%, lightgrey 49%, grey 82%, lightgrey 100%);
+
+    background: linear-gradient(to bottom, var(--alternatedbackground) 0%, var(--bgcolor) 49%, var(--bgcolor) 82%, var(--alternatedbackground) 100%);
+}
 
  .Activated
  {
@@ -26,8 +66,9 @@
    .sortable 
    {
         list-style-type: none; margin: 0; padding: 0; xwidth: 60%; 
-         border-color: grey !important;
-         border:1px outset grey !important;
+         border-color: gray;
+         border-color: var(--alternatedbackground) !important;
+         border:1px outset var(--alternatedbackground) !important;
          border-radius: 3px 2px 2px 3px;
 
          margin: 0 3px 3px 3px; padding: 0.4em; 
@@ -44,14 +85,16 @@
 /* This is the masthead (the globe, the gradient top span) */
 .title2
 {
-    background: linear-gradient(to right,  black 0%, black 49%, grey 82%, white 100%);
+    background: linear-gradient(to right,  black 0%, grey 49%, black 82%, grey 100%);
+    background: linear-gradient(to right,  var(--leftbgcolor) 0%, var(--bgcolor) 49%, var(--alternatedbackground) 82%, var(--rightgradient) 100%);
 }
 
 
 h1, h2, h4, h5, h6
 {
     font-size: 1.5em;
-    color: #696969;
+    color: white;
+    color: var(--fontcolor);
     font-variant: small-caps;
     text-transform: none;
     font-weight: 200;
@@ -63,7 +106,7 @@ h1, h2, h4, h5, h6
 h7
 {
     font-size: 1.3em;
-    color: #696969;
+    color: var(--fontcolorheading);
     font-variant: small-caps;
     text-transform: none;
     font-weight: 200;
@@ -73,9 +116,8 @@ h7
 
 h3
 {
-
-	font-family: tahoma, verdana,helvetica;
-	font-weight:300;
+  font-family: tahoma, verdana,helvetica;
+   font-weight:300;
 }
 
 
@@ -198,8 +240,10 @@ h1
 .ui-widget-content 
 {
 	border: 1px solid #dddddd;
-        background: linear-gradient(black,#005c11,black); 
-	color: white;
+	background: linear-gradient(white,grey,black);
+        background: linear-gradient(var(--gradientcolor),var(--bgcolor),var(--gradientcolor2)); 
+        color: white;
+	color: var(--textcolor);
 }
 
 .ui-widget-content a 
@@ -208,47 +252,46 @@ h1
 }
 .ui-widget-header {
 	border: 1px solid #dddddd;
-	background: linear-gradient(white,grey,white); 
-	color: black;
+	background: linear-gradient(white,grey,black);
+	background: linear-gradient(var(--gradientcolor),var(--alternatedbackground),var(--gradientcolor2)); 
+	color: var(--textcolor);
 	font-weight: bold;
 }
 .ui-widget-header a {
-	color: #333333;
+	color: var(--gradientcolor);
 }
 
 
 
 .roundbutton {
-  background-color: black;
+  background-color: var(--bgcolor);
   x-webkit-border-radius: 15px;
   padding: 5px;
-  color: black;
+  color: var(--textcolor);
   /* Round button background gradient */
-  background: linear-gradient(white,grey,white); 
-  border-color: grey !important;
-  border:1px outset grey !important;
+  background: linear-gradient(var(--gradientcolor),var(--alternatedbackground),var(--gradientcolor2)); 
+  border-color: var(--alternatedbackground) !important;
+  border:1px outset var(--alternatedbackground) !important;
   border-radius: 3px 2px 2px 3px;
-
 }
 
 
 
 body   
 {
-   
-    background: black;
-    background-color: black;
+    background: var(--bgcolor);
+    background-color: var(--bgcolor);
     font-size: .80em;
     font-family: "Helvetica Neue", "Lucida Grande", "Segoe UI", Arial, Helvetica, Verdana, sans-serif;
     margin: 0px;
     padding: 0px;
-    color: white;
+    color: var(--textcolor);
     
 }
 
 .progress_unfill{
 
-    background-color:grey;
+    background-color:var(--alternatedbackground);
 }
 
 .progress_fill
@@ -259,8 +302,8 @@ body
 select 
 {
    border-radius: 3px 3px 3px 3px;
-   color: white;
-   background-color: black;
+   color: var(--textcolor);
+   background-color: var(--bgcolor);
    border:1px outset green !important;
    border-radius: 3px 2px 2px 3px;
 }
@@ -269,8 +312,8 @@ select
 input[type=text], textarea
 {
    border-radius: 3px 3px 3px 3px;
-   color: white;
-   background-color: black;
+   color: var(--textcolor);
+   background-color: var(--bgcolor);
    border:1px outset green;
 }
 
@@ -281,8 +324,8 @@ input
 {
 	border: 1px solid;
 	xbackground: -webkit-gradient(linear, 60% 100%, 88% 100%, from(<BACKGROUND_TEXTBOX_COLOR>), to(<BACKGROUND_TEXTBOX_COLOR2>));
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 }
 
 .reado
@@ -296,8 +339,8 @@ input
 
 .inputfile
 {
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 
     width: 110.1px;
     height: 110.1px;
@@ -311,8 +354,8 @@ input
 .inputfile + label {
     font-size: 1.25em;
     font-weight: 700;
-    color: white;
-    background-color: black;
+    color: var(--textcolor);
+    background-color: var(--bgcolor);
     display: inline-block;
 }
 
@@ -327,8 +370,8 @@ input:valid
 {
 	border: 1px solid;
 	xbackground: -webkit-gradient(linear, 60% 100%, 88% 100%, from(<BACKGROUND_TEXTBOX_COLOR>), to(<BACKGROUND_TEXTBOX_COLOR2>));
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 }
 
 
@@ -464,7 +507,8 @@ input:valid {  border: 1px solid green;}
   border-radius: 5px 0 0 5px;
   -moz-border-radius: 5px 0 0 5px;
   -webkit-border-radius: 5px 0 0 5px;
-  background-color: black;
+  background-color: grey;
+  background-color: var(--bgcolor);
   background-repeat: repeat-x;
   width: 200px;
 }
@@ -477,17 +521,22 @@ input:valid {  border: 1px solid green;}
 
 #cssmenu a 
 {
-  background-color: black;
+  background-color: grey;
+  background-color: var(--bgcolor);
   #main image here;
   
-  background: linear-gradient(#223322,#121112,black); 
+  /*background: linear-gradient(var(--bgcolor),var(--midcolor,blue),var(--bgcolor)); */
   /* Primary Mast Left Menu Colors */
-  
-  background: linear-gradient(#223322,#121112,black); 
+    
+    background-backup: linear-gradient(#223322,#121112,var(--bgcolor));  
+    
+    background: linear-gradient(white,lightgrey,white);    
+    background: linear-gradient(var(--leftcolor),var(--midcolor,blue),var(--bgcolor));  
+    
   
   
   background-repeat: repeat-x;
-  color: white;
+  color: var(--textcolor);
   display: block;
   font-family: Helvetica, Arial, Verdana, sans-serif;
   font-size: 12px;
@@ -538,17 +587,18 @@ input:valid {  border: 1px solid green;}
   xbox-shadow: inset 0 0 3px 141414;
   -moz-box-shadow: inset 0 0 3px 141414;
   -webkit-box-shadow: inset 0 0 3px 141414;
-  background-color: 141414;
+  background-color: #black;
   
-  background-color: grey;
+  background-color: var(--alternatedbackground);
   
-
   background-repeat: repeat-x;
 }
 #cssmenu > ul > li:hover > a {
   background-repeat: repeat-x;
   /* Leftmost Mast of Menu (primary menu hover color:green) */
-  background: linear-gradient(black,green,black); 
+  
+  background: linear-gradient(black,lightgrey,white);
+  background: linear-gradient(var(--bgcolor), var(--midcolor,blue),var(--bgcolor)); 
   -moz-box-shadow: inset 0 0 3px 141414;
   -webkit-box-shadow: inset 0 0 3px 141414;
 }
@@ -557,7 +607,8 @@ input:valid {  border: 1px solid green;}
 }
 #cssmenu .has-sub:hover > ul {
   display: block;
-    background: linear-gradient(black,green,black); 
+  background: linear-gradient(black,lightgrey,white);
+  background: linear-gradient(var(--bgcolor),var(--midcolor,blue),var(--bgcolor)); 
 
 }
 #cssmenu .has-sub ul {
@@ -580,7 +631,8 @@ input:valid {  border: 1px solid green;}
   padding: 10px;
 }
 #cssmenu .has-sub ul li:hover a {
-  background: gray;
+background: white;
+  background: var(--alternatedbackground);
 }
 
 #cssmenu .has-sub .has-sub:hover > ul {
@@ -1162,12 +1214,12 @@ input:valid {  border: 1px solid green;}
 {
     display:inline;
     color:yellow;
-    background:black;
+    background:var(--bgcolor);
     color:pink;
     margin-bottom:15px;
     padding-bottom:3px;
     padding-left:5px;
-    background-color:black;
+    background-color:var(--bgcolor);
     xborder: solid 1px green;
     xopacity:.50;
 }

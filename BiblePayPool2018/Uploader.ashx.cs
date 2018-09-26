@@ -55,14 +55,19 @@ namespace BiblePayPool2018
                     }
                     HttpPostedFile postedFile = context.Request.Files[i];
                     string fn = System.IO.Path.GetFileName(postedFile.FileName);
+                    fn = clsStaticHelper.PurifySQL(fn, 255);
+
                     string SaveLocation = context.Server.MapPath("Data") + "\\" + fn;
                     string sDocName = postedFile.FileName;
-                    string sSan = sys.AppSetting("SAN", "SAN_NOT_SET");
+                    string sSan = USGDFramework.clsStaticHelper.GetConfig("SAN");
                     if (bIsNew)
                     {
                         string sql = "Insert into "+ sTargetTable + " (id,deleted,added,addedby,organization,parentid) " 
-                        + " values ('" + sDocGuid + "',0,getdate(),'" + sys.UserGuid.ToString() + "','" + sys.Organization.ToString() + "','" + sParentID + "')";
-                        sys._data.Exec(sql);
+                        + " values ('" + sDocGuid + "',0,getdate(),'" +
+                        clsStaticHelper.GuidOnly(sys.UserGuid)
+                        + "','" + clsStaticHelper.GuidOnly(sys.Organization.ToString())
+                         + "','" + sParentID + "')";
+                        sys._data.Exec2(sql);
                     }
 
                     try
@@ -83,19 +88,21 @@ namespace BiblePayPool2018
                             string sPublicSite = sSan + "\\Images\\";
                             string sTargetImagePath = sPublicSite + sTargetFileName;
                             string sExt2 = sExtension.ToLower();
-                            bool bBlocked = (sExt2 == "png" || sExt2 == "jpg" || sExt2 == "jpeg") ? false : true;
+                            bool bBlocked = (sExt2 == ".png" || sExt2 == ".jpg" || sExt2 == ".jpeg") ? false : true;
                             if (bBlocked)
                             {
                                 throw new Exception("Extension not allowed.");
                             }
                             System.IO.File.Copy(sTargetPath, sTargetImagePath, true);
-                            sURL = sys.AppSetting("WebSite","http://myurl.biblepay.org/") + "SAN/" + sTargetFileName;
+                            sURL = USGDFramework.clsStaticHelper.GetConfig("WebSite") + "SAN/" + sTargetFileName;
                         }
                         string sql = "Update "+ sTargetTable + " set Name='" + sFileNamePrefix + "',Extension = '" + sExtension 
                             + "',URL='" + sURL + "',SAN='" + sSan + "',FullFileName='" + sFullFileName + "',ParentType='" 
-                            + sParentType + "',Updated=getdate(),Size='" + fi.Length.ToString() + "',UpdatedBy='" 
-                            + sys.UserGuid.ToString() + "' WHERE id  = '" + sDocGuid.Trim() + "'";
-                        sys._data.Exec(sql);
+                            + clsStaticHelper.PurifySQL(sParentType,50)
+                            + "',Updated=getdate(),Size='" + fi.Length.ToString() + "',UpdatedBy='" 
+                            + clsStaticHelper.GuidOnly(sys.UserGuid)
+                            + "' WHERE id  = '" + clsStaticHelper.GuidOnly(sDocGuid) + "'";
+                        sys._data.Exec2(sql);
                         if (bIsNew) sys.LastWebObject.guid = sDocGuid;
 
                         context.Response.Write("The file has been uploaded.  ");

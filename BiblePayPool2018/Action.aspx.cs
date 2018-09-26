@@ -2,6 +2,7 @@
 using System;
 using System.Data;
 using System.Data.SqlClient;
+using System.IO;
 using static BiblePayPool2018.Ext;
 
 namespace BiblePayPool2018
@@ -9,23 +10,51 @@ namespace BiblePayPool2018
     public partial class Action : System.Web.UI.Page
     {
       
-        public string MinerGuid(string sMiner)
+        public string MinerGuid(string sMiner, ref double dAutoWithdraws)
         {
             string sMinerGuid  = clsStaticHelper.AppCache(sMiner, this.Application);
+
             if (sMinerGuid.Length == 0)
             {
                 // If the miner guid is not cached in memory we need to get it from the database:
-                string sql = "Select * from miners with (nolock) where username='" + sMiner + "'";
-                string sID = clsStaticHelper.mPD.ReadFirstRow(sql, "id");
-                clsStaticHelper.AppCache(sMiner, sID, Server, this.Application);
-                return sID;
+                string sql = "Select miners.id,users.withdrawalAddressValidated from miners with(nolock) inner join Users(nolock) on users.id = miners.userid"
+                    + " Where miners.username = '" + clsStaticHelper.PurifySQL(sMiner, 99) + "'";
+                DataTable dt = clsStaticHelper.mPD.GetDataTable2(sql,false);
+                if (dt.Rows.Count > 0)
+                {
+                    string sID = dt.Rows[0]["id"].ToString();
+                    dAutoWithdraws = clsStaticHelper.GetDouble(dt.Rows[0]["withdrawalAddressValidated"]);
+                    clsStaticHelper.AppCache(sMiner, sID, Server, this.Application);
+                    clsStaticHelper.AppCache(sMiner + "_AutoWithdraws", dAutoWithdraws.ToString(), Server, this.Application);
+                    return sID;
+                }
+                else
+                {
+                    return "";
+                }
             }
             else
             {
+                dAutoWithdraws = clsStaticHelper.GetDouble(clsStaticHelper.AppCache(sMiner + "_AutoWithdraws", this.Application));
                 return sMinerGuid;
             }
         }
 
+        public double GetCachedSolvedCount(string sMinerGuid, string sNetworkID)
+        {
+            string sKey = "solved" + "_" + sMinerGuid;
+            double dCachedSolved = clsStaticHelper.GetDouble(clsStaticHelper.AppCache(sKey, this.Application));
+            if (clsStaticHelper.LogLimiter() > 1000)
+            {
+                string sql = "Select count(*) as ct from Work with (nolock) where endtime is not null and minerid='" 
+                    + clsStaticHelper.GuidOnly(sMinerGuid)
+                    + "' and networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID) + "'"; // and endtime is not null";
+                dCachedSolved = clsStaticHelper.GetDouble(clsStaticHelper.mPD.ReadFirstRow2(sql, 0, false));
+                clsStaticHelper.AppCache(sKey, dCachedSolved.ToString(), Server, this.Application);
+            }
+            return dCachedSolved;
+        }
+        
         private SystemObject Sys = null;
         private bool IsLoggedOn()
         {
@@ -53,31 +82,28 @@ namespace BiblePayPool2018
 
         public string GetHashDifficulty2(long lSharesSolved, double dHistoricalHashPs, string sNetworkID)
         {
-            // This section was originally created to ratchet up the diff when we had x11, in order to award higher HPS2 pool measurements based on the diff of the problem given to the client
-            // But, after f7000 kicked in, we now award equal difficulty shares to every miner, so that we dont have to reverse engineer the diff back from the solution,
-            // now we just increase HPS2 an equal amount per share solved.  (This prevents any funny attacks on the client side).
-            // The line below sets everyone at step 30.  Step 30 was chosen as one that takes about 3 minutes to solve on an average machine on one thread.
-            if (lSharesSolved > 0) lSharesSolved = 30;
-            long lTargetSolveCountPerRound = 35;
-            double dMasterPrefix = 4444444;
-            int dSubLen = dMasterPrefix.ToString().Length;
-            double dPrefix = dMasterPrefix;
-            for (int y = 0; y <= lSharesSolved; y++)
+            string sZeroes = "000";
+            if (lSharesSolved < 4)
             {
-                double dStep = ((dMasterPrefix / 1) / lTargetSolveCountPerRound) * 1.5;
-                if (y > (lTargetSolveCountPerRound * 0.7))
-                    dStep = dStep / 4;
-                dPrefix = dPrefix - dStep;
+                sZeroes = "000";
             }
-            if (dPrefix < 90) dPrefix = 90;
-            string sPrefix = "00000000000" + Strings.Trim(Math.Round(dPrefix, 0).ToString());
-            sPrefix = sPrefix.Substring(sPrefix.Length - dSubLen, dSubLen);
-            // 7 zeroes = F7000 - hard
-            // 6 zeroes = F9000 - easier
-            bool F9000 = true;
-            string sZeroes = F9000 ? "00000" : "0000000";
-            string sPrePrefix = (sNetworkID == "test" ? sZeroes : sZeroes);
-            string sHashTarget = sPrePrefix + sPrefix + "111100000000000000000000000000000000000000000000000000000000";
+            else if (lSharesSolved >= 5 && lSharesSolved <= 20)
+            {
+                sZeroes = "00000";
+            }
+            else if (lSharesSolved > 20 && lSharesSolved <= 30)
+            {
+                sZeroes = "00000000";
+            }
+            else if (lSharesSolved > 30 && lSharesSolved < 99)
+            {
+                sZeroes = "0000000000";
+            }
+            else if (lSharesSolved > 99)
+            {
+                sZeroes = "0000000000";
+            }
+            string sHashTarget = sZeroes + "111100000000000000000000000000000000000000000000000000000000";
             sHashTarget = Strings.Left(sHashTarget, 64);
             return sHashTarget;
         }
@@ -85,23 +111,12 @@ namespace BiblePayPool2018
         private string GetHashTarget(string sMinerGuid, string sNetworkID)
         {
             string sHashTarget = "";
-            double dCt = 0;
-            if ((clsStaticHelper.RequestModulusByMinerGuid(this.Server,this.Application,this.Request,sMinerGuid) % 50) == 0)
-            {
-                dCt = clsStaticHelper.GetSolvedCount(sMinerGuid, sNetworkID);
-            }
+            double dCSS2 = GetCachedSolvedCount(sMinerGuid, sNetworkID);
             double dHPS = 0;
-            sHashTarget = GetHashDifficulty2((long)dCt, dHPS, sNetworkID);
+            sHashTarget = GetHashDifficulty2((long)dCSS2, dHPS, sNetworkID);
             return sHashTarget;
         }
-
-        public string GetReqdHashTarget(string workid)
-        {
-            string sql = "Select hashtarget from work with (nolock) where id = '" + Strings.Trim(workid) + "'";
-            string sTarget = clsStaticHelper.mPD.ReadFirstRow(sql, 0);
-            return sTarget;
-        }
-
+       
         private bool AnalyzeTip(int iTipHeight, String sNetworkID)
         {
             if (iTipHeight > clsStaticHelper.nCurrentTipHeightMain)
@@ -114,22 +129,6 @@ namespace BiblePayPool2018
             }
             return true;
         }
-
-
-        public struct Trade
-        {
-            public string Hash;
-            public             int Time;
-            public             string Action;
-            public             string Symbol;
-            public double Quantity;
-            public double Price;
-            public double Total;
-            public string Address;
-            public string EscrowTXID;
-            public double VOUT;
-        }
-        
         
         string GetXML(object o, string sFieldName)
         {
@@ -137,30 +136,12 @@ namespace BiblePayPool2018
             string sXML = "<" + sFieldName + ">" + sValue + "</" + sFieldName + ">";
             return sXML;
         }
-
-        Trade DepersistTrade(string sSolution)
-        {
-            Trade t = new Trade();
-            t.Hash = clsStaticHelper.ExtractXML(sSolution, "hash=", ",").ToString();
-            t.Time = (int)ToDouble(clsStaticHelper.ExtractXML(sSolution, "time=", ","));
-            t.Action = clsStaticHelper.ExtractXML(sSolution, "action=", ",").ToString();
-            t.Symbol = clsStaticHelper.ExtractXML(sSolution, "symbol=", ",").ToString();
-            t.Quantity = ToDouble(clsStaticHelper.ExtractXML(sSolution, "quantity=", ","));
-            t.Address = clsStaticHelper.ExtractXML(sSolution, "address=", ",").ToString();
-            t.Price = ToDouble(clsStaticHelper.ExtractXML(sSolution, "price=", ","));
-            t.EscrowTXID = clsStaticHelper.ExtractXML(sSolution, "escrowtxid=", ",").ToString();
-            t.VOUT = (int)ToDouble(clsStaticHelper.ExtractXML(sSolution, "vout=", ","));
-            t.Total = t.Price * t.Quantity;
-            return t;
-        }
-        
         
         long RawTransactionAge(string sNetworkId, string sMyAddress, string sTxId, double dAmount)
         {
             string sRawTx = clsStaticHelper.GetRawTransaction(sNetworkId, sTxId);
             if (sRawTx.Contains(sMyAddress) && sRawTx.Contains(dAmount.ToString()))
             {
-                //TODO: Confirm height is > 5 and TxId was never paid to us before
                 return 10;
             }
             if (sRawTx.Contains("?") && sRawTx.Contains(dAmount.ToString())) return 9;
@@ -171,8 +152,9 @@ namespace BiblePayPool2018
         {
             try
             {
-                string sql = "Select * from Orders where networkid='" + sNetworkID + "' and WalletOrder=1 and WalletOrderProcessed=0 and TxId is not null";
-                DataTable dt10 = clsStaticHelper.mPD.GetDataTable(sql);
+                string sql = "Select * from Orders where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID) 
+                    + "' and WalletOrder=1 and WalletOrderProcessed=0 and TxId is not null";
+                DataTable dt10 = clsStaticHelper.mPD.GetDataTable2(sql);
                 for (int i = 0; i < dt10.Rows.Count; i++)
                 {
                     string id = dt10.Rows[i]["id"].ToString();
@@ -188,17 +170,18 @@ namespace BiblePayPool2018
                     {
                         clsStaticHelper.Log(" Got order confirm! processing " + id);
 
-                        string sql20 = "Select * from users where id ='" + sUserGuid + "'";
+                        string sql20 = "Select * from users where id ='" + clsStaticHelper.GuidOnly(sUserGuid) + "'";
 
-                        DataTable dtU = clsStaticHelper.mPD.GetDataTable(sql20);
+                        DataTable dtU = clsStaticHelper.mPD.GetDataTable2(sql20);
                         if (dtU.Rows.Count > 0)
                         {
-                            string sql21 = "Select * from Products where productid = '" + sProductID + "' and networkid='" + sNetworkID + "'";
-                            DataTable dt22 = clsStaticHelper.mPD.GetDataTable(sql21);
+                            string sql21 = "Select * from Products where productid = '" + clsStaticHelper.PurifySQL(sProductID,50)
+                                + "' and networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID) + "'";
+                            DataTable dt22 = clsStaticHelper.mPD.GetDataTable2(sql21);
                             if (dt22.Rows.Count == 0)
                             {
-                                string sql23 = "Update Orders set Status1='UNABLE TO LOCATE PRODUCT',WalletOrderProcessed=1,Updated=getdate() where id='" + id + "'";
-                                clsStaticHelper.mPD.Exec(sql23);
+                                string sql23 = "Update Orders set Status1='UNABLE TO LOCATE PRODUCT',WalletOrderProcessed=1,Updated=getdate() where id='" + clsStaticHelper.GuidOnly(id) + "'";
+                                clsStaticHelper.mPD.Exec2(sql23);
                                 break;
                             }
                             double dPrice = Convert.ToDouble(dt22.Rows[0]["price"].ToString());
@@ -221,7 +204,7 @@ namespace BiblePayPool2018
                             shipAddr.first_name = clsStaticHelper.GetNameElement(sDelName, 0).ToUpper();
                             shipAddr.last_name = clsStaticHelper.GetNameElement(sDelName, 1).ToUpper();
                             // The user has a good address, enough BBP, go ahead and buy it - Place the order, and track it
-                            string sToken = clsStaticHelper.AppSetting("MouseToken", "");
+                            string sToken = USGDFramework.clsStaticHelper.GetConfig("MouseToken_E");
                             Zinc.BiblePayMouse bm = new Zinc.BiblePayMouse(sToken);
                             Zinc.BiblePayMouse.Product[] product = new Zinc.BiblePayMouse.Product[1];
                             Zinc.BiblePayMouse.Product pNew = new Zinc.BiblePayMouse.Product();
@@ -245,8 +228,11 @@ namespace BiblePayPool2018
                             wh1.order_placed = "";
                             string indep = id.ToString().ToUpper().Substring(0, 5);
                             string sMouseId = bm.CreateOrder(indep, sRetailer, product, max_price, is_gift, "", shipAddr, ship1, pm1, ba1, rc1, wh1, cn1);
-                            sql = "Update Orders set Title='" + sTitle + "',WalletOrderProcessed=1,MouseId = '" + sMouseId + "',Status1='PLACED' where ID = '" + id + "'";
-                            clsStaticHelper.mPD.Exec(sql);
+                            sql = "Update Orders set Title='" + 
+                                sTitle + "',WalletOrderProcessed=1,MouseId = '" + 
+                                clsStaticHelper.PurifySQL(sMouseId,55)
+                                + "',Status1='PLACED' where ID = '" + clsStaticHelper.GuidOnly(id) + "'";
+                            clsStaticHelper.mPD.Exec2(sql);
                         }
                     }
                 }
@@ -261,8 +247,9 @@ namespace BiblePayPool2018
         
         double GetProductPrice(string sProductId, string sNetworkID)
         {
-                string sql = "Select * from Products where networkid='" + sNetworkID + "' and Productid='" + sProductId + "' and inwallet=1";
-                DataTable dt = clsStaticHelper.mPD.GetDataTable(sql);
+                string sql = "Select * from Products where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                + "' and Productid='" + clsStaticHelper.PurifySQL(sProductId,55) + "' and inwallet=1";
+                DataTable dt = clsStaticHelper.mPD.GetDataTable2(sql);
                 if (dt.Rows.Count > 0)
                 {
                     double dPrice = ToDouble(dt.Rows[0]["Price"]);
@@ -274,8 +261,8 @@ namespace BiblePayPool2018
 
         double CalculateGospelClickBounty(string sID, string sClickerGuid)
         {
-            string sql = "Select * From Links where id = '" + sID + "'";
-            DataTable dt = clsStaticHelper.mPD.GetDataTable(sql);
+            string sql = "Select * From Links where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+            DataTable dt = clsStaticHelper.mPD.GetDataTable2(sql);
             if (dt.Rows.Count > 0)
             {
                 double dBounty = ToDouble(dt.Rows[0]["PaymentPerClick"]);
@@ -283,13 +270,16 @@ namespace BiblePayPool2018
                 double dClicks = ToDouble(dt.Rows[0]["Clicks"]);
                 double dSpent = dClicks * dBounty;
                 // Ensure this user was not awarded this link click before:
-                sql = "Select count(*) ct from transactionLog where transactiontype='GOSPEL_BOUNTY' and userid='" + sClickerGuid + "' and destination='" + sID + "'";
-                double AwardCount = clsStaticHelper.mPD.GetScalarDouble(sql, "ct");
+                sql = "Select count(*) ct from transactionLog where transactiontype='GOSPEL_BOUNTY' and userid='" 
+                    + clsStaticHelper.GuidOnly(sClickerGuid)
+                    + "' and destination='" + clsStaticHelper.GuidOnly(sID)
+                    + "'";
+                double AwardCount = clsStaticHelper.mPD.GetScalarDouble2(sql, "ct");
                 if (AwardCount == 0)
                 {
                     // increment clicks
-                    sql = "Update Links Set Clicks=isnull(clicks,0)+1 where id = '" + sID + "'";
-                    clsStaticHelper.mPD.Exec(sql);
+                    sql = "Update Links Set Clicks=isnull(clicks,0)+1 where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+                    clsStaticHelper.mPD.Exec2(sql);
                     if (dSpent < dBudget)
                     {
                         // We have rewards left to give:
@@ -306,6 +296,11 @@ namespace BiblePayPool2018
         {
                 try
                 {
+
+                    string sUserA = (Request.Headers["Miner"] ?? "").ToString();
+                    string sUserB = (Request.Headers["Action"] ?? "").ToString();
+                    string sUserC = (Request.Headers["Solution"] ?? "").ToString();
+                    string sRow1 = sUserA + " " + sUserB + " " + sUserC;
                     string sMiner = (Request.Headers["Miner"] ?? "").ToString();
                     string sBBPAddress = (Request.Headers["Miner"] ?? "").ToString();
                     string sAction = (Request.Headers["Action"] ?? "").ToString();
@@ -315,162 +310,289 @@ namespace BiblePayPool2018
                     string sIP = (Request.UserHostAddress ?? "").ToString();
                     string sWorkID = (Request.Headers["WorkID"] ?? "").ToString();
                     string sThreadID1 = (Request.Headers["ThreadID"] ?? "").ToString();
-                    string sForensic = sMiner + "," + sAction + "," + sSolution + "," + sNetworkID + "," + sAgent + "," + sIP + "," + sWorkID + "," + sThreadID1;
                     string sReqAction = (Request.QueryString["action"] ?? "").ToString();
+                    string sTip = (Request.QueryString["tip"] ?? "").ToString();
+                if (sTip != "")
+                {
+                    bool bIsLogged = IsLoggedOn();
+                    if (bIsLogged)
+                    {
+                        Sys.SetObjectValue("Tip", "Recipient1", sTip);
+
+                        Response.Redirect("pool.ashx");
+                    }else
+                    {
+                        Response.Redirect("pool.ashx");
+                    }
+                }
                     string sReqLink = (Request.QueryString["link"] ?? "").ToString();
                     if (sReqLink != "") sReqAction = "link";
                     string sOS = (Request.Headers["OS"] ?? "").ToString();
                     sAgent = sAgent.Replace(".", "");
                     double dAgent = Convert.ToDouble("0" + sAgent);
-                    if (dAgent > 1000 && dAgent < 1035 || (dAgent > 1000 && dAgent < 1069))
+                    if (dAgent > 1000 && dAgent < 1035 || (dAgent > 1000 && dAgent < 1101))
                     {
                         string sResponse1 = "<RESPONSE>PLEASE UPGRADE</RESPONSE><ERROR>PLEASE UPGRADE</ERROR><EOF></HTML>";
                         Response.Write(sResponse1);
                         return;
                     }
-                    if (sReqAction == "verify_email")
-                    {
-                        string sID = (Request.QueryString["id"] ?? "").ToString();
-                        string sql = "Select username,id,email,password from Users where id = '" + sID.ToString() + "'";
-                        string email = clsStaticHelper.mPD.ReadFirstRow(sql, "email");
-                        string sUserName = clsStaticHelper.mPD.ReadFirstRow(sql, "username");
+                if (sReqAction == "verify_email")
+                {
+                    string sID = (Request.QueryString["id"] ?? "").ToString();
+                    string sql = "Select username,id,email,password from Users where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+                    string email = clsStaticHelper.mPD.ReadFirstRow2(sql, "email");
+                    string sUserName = clsStaticHelper.mPD.ReadFirstRow2(sql, "username");
 
-                        if (email.Length > 3)
+                    if (email.Length > 3)
+                    {
+                        // Verified
+                        sql = "Update Users set EmailVerified = 1 where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+                        clsStaticHelper.mPD.Exec2(sql);
+                        string sBody = "<html>Dear " + sUserName.ToUpper() + ", <br><br>Your E-Mail has been verified.<br><br>  Have a great day! <br><br> May Jesus' Kingdom Extend for Infinity,<br>BiblePay Support<br></html>";
+                        Response.Write(sBody);
+                        return;
+                    }
+                }
+                else if (sReqAction == "api_proposals")
+                {
+                    string sql = "Select * from Proposal where network = 'main'";
+                    string data = clsStaticHelper.DataDump(sql, "resubmit");
+                    Response.Write(data);
+                    return;
+                }
+                else if (sReqAction == "api_superblock")
+                {
+                    string sql = "Select * from Superblocks";
+                    string data = clsStaticHelper.DataDump(sql, "");
+                    Response.Write(data);
+                }
+                else if (sReqAction == "api_leaderboard")
+                {
+                    string sql = "Select * from RosettaMaster";
+                    string data = clsStaticHelper.DataDump(sql, "");
+                    Response.Write(data);
+                    return;
+                }
+                else if (sReqAction == "metrics")
+                {
+                    string sql = "Select count(*) ct from Orphans";
+                    double dOrphanCount = clsStaticHelper.mPD.GetScalarDouble2(sql, "ct");
+                    string sMetrics = "<METRICS><ORPHANCOUNT>" + dOrphanCount.ToString() + "</ORPHANCOUNT></METRICS>";
+                    Response.Write(sMetrics);
+                    return;
+                }
+                else if (sReqAction == "wcgrac")
+                {
+                    string cpid = (Request.QueryString["cpid"] ?? "").ToString();
+                    string sql = "select isnull(wcgrac,0) as wcgrac from Superblocks where cpid='" + cpid + "' and height = (select max(height) from superblocks)";
+                    double dRAC = clsStaticHelper.mPD.GetScalarDouble2(sql, "wcgrac", false);
+                    string sMetrics = "<WCGRAC>" + dRAC.ToString() + "</WCGRAC><EOF>";
+                    Response.Write(sMetrics);
+                    return;
+                }
+                else if (sReqAction == "teamrac")
+                {
+                    string sql = "select max(totalrac) a from superblocks where height=(select max(height) from superblocks)";
+                    double dRAC = clsStaticHelper.mPD.GetScalarDouble2(sql, "a", false);
+                    string sMetrics = "<TEAMRAC>" + dRAC.ToString() + "</TEAMRAC><EOF>";
+                    Response.Write(sMetrics);
+                    return;
+                }
+                else if (sReqAction == "unbanked")
+                {
+                    string sql = "select tempteam.id,tempteam.rosettaid, tempteam.UserName,sum(isnull(temphostdetails1.RAC,0)) as RAC, sum(isnull(temphostdetails2.rac,0)) as ARMRac "
+                        + "  from TempTeam"
+                        + " inner join TempHosts on tempHosts.RosettaID = tempTeam.RosettaID "
+                        + " left join TempHostDetails temphostdetails1 on TempHosts.Computerid = temphostdetails1.computerid and isnull(temphostdetails1.arm,0) = 0 "
+                        + " left join temphostdetails temphostdetails2 on temphosts.computerid = temphostdetails2.computerid  and temphostdetails2.arm = 1 "
+                        + " group by tempteam.id,tempteam.rosettaid, tempteam.username"
+                        + " having sum(isnull(temphostdetails2.rac,0)) > 0 and sum(isnull(temphostdetails1.rac,0)) < 15 ";
+                    DataTable dtUnbanked = clsStaticHelper.mPD.GetDataTable2(sql, false);
+                    string sData = "<UNBANKED>";
+                    for (int z = 0; z < dtUnbanked.Rows.Count; z++)
+                    {
+                        string sRosettaId = dtUnbanked.Rows[z]["rosettaid"].ToString();
+                        double dArmRac = clsStaticHelper.GetDouble(dtUnbanked.Rows[z]["ARMRac"].ToString());
+                        string sRow = sRosettaId + "," + dArmRac.ToString() + ",\r\n<ROW>";
+                        sData += sRow;
+                    }
+                    sData += "</UNBANKED></HTML><EOF>";
+                    Response.Write(sData);
+                    return;
+                }
+                else if (sReqAction == "continue_action")
+                {
+                    string sID = (Request.QueryString["id"] ?? "").ToString();
+                    if (sID.Length > 1)
+                    {
+
+                        string sql10 = "Select * From RequestLog where id = '" + clsStaticHelper.GuidOnly(sID)
+                            + "' and processed is null";
+                        DataTable dtReq = clsStaticHelper.mPD.GetDataTable2(sql10);
+                        if (dtReq.Rows.Count == 0)
                         {
-                            // Verified
-                            sql = "Update Users set EmailVerified = 1 where id = '" + sID.ToString() + "'";
-                            clsStaticHelper.mPD.Exec(sql);
-                            string sBody = "<html>Dear " + sUserName.ToUpper() + ", <br><br>Your E-Mail has been verified.<br><br>  Have a great day! <br><br> May Jesus' Kingdom Extend for Infinity,<br>BiblePay Support<br></html>";
-                            Response.Write(sBody);
+                            Response.Write("Sorry, No Transaction present.");
                             return;
                         }
-                    }
 
-                    if (sReqAction == "continue_action")
-                    {
-                        string sID = (Request.QueryString["id"] ?? "").ToString();
-                        if (sID.Length > 1)
-                        { 
-                            string sql2 = "Update RequestLog set IP2='" + sIP + "',UserName2='" + "' where id = '" + sID + "'";
-                            clsStaticHelper.mPD.Exec(sql2);
-                            string sql10 = "Select * From RequestLog where id = '" + sID + "' and processed is null";
-                            DataTable dtReq = clsStaticHelper.mPD.GetDataTable(sql10);
-                            if (dtReq.Rows.Count==0)
+                        string sql2 = "Update RequestLog set IP2='" + clsStaticHelper.PurifySQL(sIP, 80)
+                        + "' Where id = '" + clsStaticHelper.GuidOnly(sID)
+                        + "'";
+                        clsStaticHelper.mPD.Exec2(sql2);
+
+                        if (dtReq.Rows.Count > 0)
+                        {
+                            string sUserGuid = dtReq.Rows[0]["userguid"].ToString();
+                            sql10 = "Select * from Users where id = '" + clsStaticHelper.GuidOnly(sUserGuid)
+                            + "'";
+                            DataTable dtU = clsStaticHelper.mPD.GetDataTable2(sql10);
+                            if (dtU.Rows.Count > 0)
                             {
-                                Response.Write("Sorry, No Transaction present.");
-                                return;
-                            }
-                            if (dtReq.Rows.Count > 0)
-                            {
-                                string sUserGuid = dtReq.Rows[0]["userguid"].ToString();
-                                sql10 = "Select * from Users where id = '" + sUserGuid + "'";
-                                DataTable dtU = clsStaticHelper.mPD.GetDataTable(sql10);
-                                if (dtU.Rows.Count > 0)
+                                string sUG = dtU.Rows[0]["id"].ToString();
+                                string sNetworkID2 = dtReq.Rows[0]["Network"].ToString();
+                                double Amount = clsStaticHelper.GetDouble(dtReq.Rows[0]["Amount"]);
+                                string sUN = dtU.Rows[0]["username"].ToString();
+                                double dEV = clsStaticHelper.GetDouble(dtU.Rows[0]["EmailVerified"]);
+                                double dUV = clsStaticHelper.GetDouble(dtU.Rows[0]["SendVerified"]);
+                                double dWithdraws = clsStaticHelper.GetDouble(dtU.Rows[0]["Withdraws"]);
+                                double oldBalance = 0;
+                                double dImmature = 0;
+                                string sDest = dtReq.Rows[0]["Address"].ToString();
+
+                                clsStaticHelper.GetUserBalances(sNetworkID2, sUG, ref oldBalance, ref dImmature);
+                                double dAvail = oldBalance - dImmature;
+                                if (dAvail < Amount)
                                 {
-                                    string sUG = dtU.Rows[0]["id"].ToString();
-                                    string sNetworkID2 = dtReq.Rows[0]["Network"].ToString();
-                                    double Amount = clsStaticHelper.GetDouble(dtReq.Rows[0]["Amount"]);
-                                    string sUN = dtU.Rows[0]["username"].ToString();
-                                    double dEV = clsStaticHelper.GetDouble(dtU.Rows[0]["EmailVerified"]);
-                                    double dUV = clsStaticHelper.GetDouble(dtU.Rows[0]["SendVerified"]);
-                                    double dWithdraws = clsStaticHelper.GetDouble(dtU.Rows[0]["Withdraws"]);
-                                    double oldBalance = 0;
-                                    double dImmature = 0;
-                                    string sDest = dtReq.Rows[0]["Address"].ToString();
+                                    Response.Write("Sorry, Balance too low.");
+                                    return;
+                                }
+                                if (Amount > 10000)
+                                {
+                                    Response.Write("Please wait until January 1, 2019 before withdrawing more than 10000 BBP.  ");
+                                    return;
+                                }
 
-                                    clsStaticHelper.GetUserBalances(sNetworkID2, sUG, ref oldBalance, ref dImmature);
-                                    double dAvail = oldBalance - dImmature;
-                                    if (dAvail < Amount)
-                                    {
-                                        Response.Write("Sorry, Balance too low.");
-                                        return;
-                                    }
+                                if (Amount < 3 || Amount > 40000)
+                                {
+                                    Response.Write("Sorry, amount out of range (1).");
+                                    return;
+                                }
+                                int iHeight = clsStaticHelper.GetTipHeight(sNetworkID2);
+                                if (iHeight < 1000)
+                                {
+                                    Response.Write("Sorry, Chain error.");
+                                    return;
+                                }
+                                if (dEV != 1)
+                                {
+                                    Response.Write("Sorry, Email must be reverified.");
+                                    return;
+                                }
+                                // Ensure the user has an approved receiving address
+                                // If SendVerified is set, let it go through, or if this address has been used before
+                                string sql = "Select count(*) a from TransactionLog where transactiontype='withdrawal' and destination='"
+                                    + sDest + "'";
+                                double dAddrUseCt = clsStaticHelper.mPD.GetScalarDouble2(sql, "a");
+                                bool bIdentityVerified = false;
+                                if (dAddrUseCt > 1 || dUV == 1 || dWithdraws > 3) bIdentityVerified = true;
+                                if (!bIdentityVerified)
+                                {
+                                    string sNarr1 = "Sorry, your identity must be verified.  Please send an e-mail to contact@biblepay.org with reference number "
+                                    + sID + ".";
+                                    Response.Write("<br><br>Verifying user activity...<br>Verifying transactions...<br><br>");
+                                }
 
-                                    if (Amount < 100 || Amount > 40000)
-                                    {
+                                sql = "Select Value from System where systemkey='withdraw'";
+                                string sStatus = clsStaticHelper.mPD.GetScalarString2(sql, "value");
+                                if (sStatus == "DOWN")
+                                {
+                                    Response.Write("Sorry, withdrawals are down temporarily, please try later.");
+                                    return;
+                                }
+                                // Ensure last withdrawal hasnt happened in a while...
 
-                                        Response.Write("Sorry, amount out of range.");
-                                        return;
-                                    }
-                                    int iHeight = clsStaticHelper.GetTipHeight(sNetworkID2);
-                                    if (iHeight < 1000)
+                                sql = "select max(updated) upd from TransactionLog where added > getdate() - 2  and transactionType = 'withdrawal' and amount > 9000";
+                                string sLast = clsStaticHelper.mPD.GetScalarString2(sql, "upd");
+                                if (sLast == "") sLast = Convert.ToDateTime("1/1/1970").ToShortDateString();
+
+                                double dDiff = Math.Abs(DateAndTime.DateDiff(DateInterval.Second, DateTime.Now, Convert.ToDateTime(sLast)));
+                                if (dDiff < 120)
+                                {
+                                    Response.Write("Sorry, a user has recently withdrawn a large sum of BBP.  Please wait 2 minutes and try again.  This restriction will be lifted on Jan 31, 2018 pending positive Pool Health.");
+                                    return;
+                                }
+
+                                sql = "select max(updated) upd from TransactionLog where added > getdate() - 2  and transactionType = 'withdrawal' and amount > 1000";
+                                string sLast2 = clsStaticHelper.mPD.GetScalarString2(sql, "upd");
+                                if (sLast2 == "") sLast2 = Convert.ToDateTime("1/1/1970").ToShortDateString();
+
+                                double dDiff2 = Math.Abs(DateAndTime.DateDiff(DateInterval.Second, DateTime.Now, Convert.ToDateTime(sLast2)));
+                                if (dDiff2 < 90)
+                                {
+                                    Response.Write("Sorry, a user has recently withdrawn BBP.  Please wait 90 seconds and try again.  This restriction will be lifted on Jan 31, 2018 pending positive Pool Health.");
+                                    return;
+                                }
+
+                                // Reverify balance
+                                double newBalance = oldBalance - Amount;
+                                string sTXID = "";
+                                try
+                                {
+                                    sTXID = clsStaticHelper.Z(sID, sDest, Amount, sNetworkID2);
+                                    if (sTXID.Length > 5)
                                     {
-                                        Response.Write("Sorry, Chain error.");
-                                        return;
-                                    }
-                                    if (dEV != 1)
-                                    {
-                                        Response.Write("Sorry, Email must be reverified.");
-                                        return;
-                                    }
-                                    // Ensure the user has an approved receiving address
-                                    // If SendVerified is set, let it go through, or if this address has been used before
-                                    string sql = "Select count(*) a from TransactionLog where transactiontype='withdrawal' and destination='" 
-                                        + sDest + "'";
-                                    double dAddrUseCt = clsStaticHelper.mPD.GetScalarDouble(sql, "a");
-                                    bool bIdentityVerified = false;
-                                    if (dAddrUseCt > 1 || dUV == 1 || dWithdraws > 3) bIdentityVerified = true;
-                                    if (!bIdentityVerified)
-                                    {
-                                        string sNarr1 = "Sorry, your identity must be verified.  Please send an e-mail to contact@biblepay.org with reference number " + sID + ".";
-                                        if (Amount > 5000)
-                                        {
-                                            Response.Write(sNarr1);
-                                            Response.Write("<br><br>Thank you for using BiblePay.<br>");
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            Response.Write("<br><br>Verifying user activity...<br>Verifying transactions...<br><br>");
-                                        }
-                                    }
-                                    // Reverify balance
-                                    bool bTrue = clsStaticHelper.AdjustUserBalance(sNetworkID2,sUserGuid,-1*Amount);
-                                    double newBalance = oldBalance - Amount;
-                                    string sTXID = "";
-                                    try
-                                    {
-                                        // Audit the sent Tx before sending this withdrawal
-                                        clsStaticHelper.AuditWithdrawals(sNetworkID2);
-                                        sTXID = clsStaticHelper.Z(sID, sDest, Amount, sNetworkID2);
+                                        bool bTrue = clsStaticHelper.AdjustUserBalance(sNetworkID2, sUserGuid, -1 * Amount);
                                         clsStaticHelper.InsTxLog(sUN, sUG, sNetworkID2,
                                             iHeight, sTXID, Amount, oldBalance, newBalance, sDest, "withdrawal", "");
                                     }
-                                    catch(Exception ex)
-                                    {
-                                        sTXID = "ERR60514";
-                                    }
-                                    if (sTXID.Length > 5)
-                                    {
-                                        sql = "Update RequestLog set TXID='" + sTXID + "',processed=1 where id = '" + sID + "'";
-                                        clsStaticHelper.mPD.Exec(sql);
-                                    }
-                                    // Notify of the transaction
-                                    string sSite = clsStaticHelper.AppSetting("WebSite", "http://pool.biblepay.org/");
-                                    string sNarr = "<img src='" + sSite + "images/logo.png'><p><p><br><br> Transaction verified.  <br><br><p><p>BBP Withdraw in the amount of "
-                                        + Amount.ToString() + " has been transmistted to " + sDest 
-                                        + " in TransactionID " + sTXID + ". <br><p><p> Thank you for using BiblePay.";
-                                    Response.Write(sNarr);
-                                    return;
                                 }
+                                catch (Exception ex)
+                                {
+                                    sTXID = "ERR60514";
+                                }
+                                if (sTXID.Length > 5)
+                                {
+                                    sql = "Update RequestLog set TXID='" + clsStaticHelper.PurifySQL(sTXID, 125)
+                                    + "',processed=1 where id = '" + clsStaticHelper.GuidOnly(sID)
+                                    + "'";
+                                    clsStaticHelper.mPD.Exec2(sql);
+                                }
+                                // Notify of the transaction
+                                string sSite = USGDFramework.clsStaticHelper.GetConfig("WebSite");
+                                string sNarr = "<img src='" + sSite + "images/logo.png'><p><p><br><br> Transaction verified.  <br><br><p><p>BBP Withdraw in the amount of "
+                                    + Amount.ToString() + " has been transmistted to " + sDest
+                                    + " in TransactionID " + sTXID + ". <br><p><p> Thank you for using BiblePay.";
+                                Response.Write(sNarr);
+                                return;
                             }
                         }
                     }
+                }
 
                     if (sReqAction=="password_recovery")
                     {
-                        string sID = (Request.QueryString["id"] ?? "").ToString();
-                        string sql = "Select username,id,email,password from Users where id = '" + sID.ToString() + "'";
-                        string email = clsStaticHelper.mPD.ReadFirstRow(sql, "email");
+                        string sID1 = (Request.QueryString["id"] ?? "").ToString();
+                        string sql = "Select userid from passwordreset where id = '" + clsStaticHelper.GuidOnly(sID1) + "'";
+                        DataTable dt100 = clsStaticHelper.mPD.GetDataTable2(sql);
+                        if (dt100.Rows.Count==0)
+                        {
+                            Response.Write("Sorry, no password reset action available.");
+                            return;
+                        }
+                        string sID = dt100.Rows[0]["userid"].ToString();
+                        sql = "Select username,id,email,password from Users where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+                        string email = clsStaticHelper.mPD.ReadFirstRow2(sql, "email");
                         if (email.Length > 3)
                         {
                             // Change the users password for them and notify them:
-                            string sUserName = clsStaticHelper.mPD.ReadFirstRow(sql, "username");
+                            string sUserName = clsStaticHelper.mPD.ReadFirstRow2(sql, "username");
                             string sNewPass = Guid.NewGuid().ToString();
                             sNewPass = sNewPass.Replace("-", "");
                             sNewPass = sNewPass.Substring(0, 7);
-                            sql = "Update Users Set Password = '" + modCryptography.Des3EncryptData(sNewPass) + "' where id = '" + sID + "'";
-                            clsStaticHelper.mPD.Exec(sql);
+                            sql = "Update Users Set Password = '" + USGDFramework.modCryptography.SHA256(sNewPass) + "' where id = '" + clsStaticHelper.GuidOnly(sID) + "'";
+                            clsStaticHelper.mPD.Exec2(sql);
+                            sql = "Delete from passwordReset where id = '" + clsStaticHelper.GuidOnly(sID1) + "'";
+                            clsStaticHelper.mPD.Exec2(sql);
                             string sBody = "<html>Dear " + sUserName.ToUpper() + ", <br><br>Your password has been reset to:<br>" + sNewPass + "<br><br>  Please Log In with the new password, and optionally change it. <br><br> Warm Regards,<br>BiblePay Support<br></html>";
                             Response.Write(sBody);
                             return;
@@ -485,8 +607,8 @@ namespace BiblePayPool2018
                     {
                         // Grab the ID from the link
                         string sID = Request.QueryString["link"];
-                        string sql = "Select * from Links where id like '" + sID + "%'";
-                        DataTable dt = clsStaticHelper.mPD.GetDataTable(sql);
+                        string sql = "Select * from Links where id like '" + clsStaticHelper.PurifySQL(sID,100) + "%'";
+                        DataTable dt = clsStaticHelper.mPD.GetDataTable2(sql);
                         if (dt.Rows.Count > 0)
                         {
                             string Payer = dt.Rows[0]["userid"].ToString();
@@ -503,11 +625,13 @@ namespace BiblePayPool2018
                                     double dBounty = CalculateGospelClickBounty(sGuid, Sys.UserGuid);
                                     if (dBounty > 0)
                                     {
-                                        string sql100 = "Select isnull(emailverified,0) EV from USERS where id='" + Sys.UserGuid.ToString() + "'";
-                                        double d1 = clsStaticHelper.GetScalarDouble(sql100, "EV");
+                                        string sql100 = "Select isnull(emailverified,0) EV from USERS where id='" + clsStaticHelper.GuidOnly(Sys.UserGuid)
+                                        + "'";
+                                        double d1 = clsStaticHelper.GetScalarDouble2(sql100, "EV");
                                         if (d1 == 1)
                                         {
-                                            double dBalance = clsStaticHelper.AwardBounty(sGuid, Payer, -1 * dBounty, "GOSPEL_CAMPAIGN", 0, Guid.NewGuid().ToString(), "main", sID.ToString(), false);
+                                            double dBalance = clsStaticHelper.AwardBounty(sGuid, Payer, -1 * dBounty, "GOSPEL_CAMPAIGN", 0, 
+                                                Guid.NewGuid().ToString(), "main", sID.ToString(), false);
                                             if (dBalance > 0)
                                             {
                                                 // Transfer the money to the Clicker
@@ -522,7 +646,7 @@ namespace BiblePayPool2018
                                     // Same User just redirect
                                 }
                                 string sJava = "<html><head><script>setTimeout(\"location.href = '" + sURL + "';\",2000);</script></head><body>";
-                                string sSite = clsStaticHelper.AppSetting("WebSite", "http://pool.biblepay.org/");
+                                string sSite = USGDFramework.clsStaticHelper.GetConfig("WebSite");
                                 string sNarr10 = sJava + "<img src='" + sSite + "images/logo.png'><p><p><br><br>Thank you for using BiblePay.  Gospel Bounty Award: " + dBountyPaid.ToString() + " BBP.";
                                 Response.Write(sNarr10);
                                 return;
@@ -531,7 +655,7 @@ namespace BiblePayPool2018
                             {
                                 // User should be redirected to login page
                                 string sJava = "<html><head><script>setTimeout(\"location.href = '" + sURL + "';\",2000);</script></head><body>";
-                                string sSite = clsStaticHelper.AppSetting("WebSite", "http://pool.biblepay.org/");
+                                string sSite = USGDFramework.clsStaticHelper.GetConfig("WebSite");
                                 string sNarr10 = sJava + "<img src='" + sSite + "images/logo.png'><p><p><br><br> You must log in to the pool at http://pool.biblepay.org to be awarded for Gospel Link Clicks.  <b>Gospel Bounty Awarded: " + dBountyPaid.ToString() + " BBP.";
                                 Response.Write(sNarr10);
                                 return;
@@ -545,13 +669,14 @@ namespace BiblePayPool2018
                     }
                     else if (sReqAction=="housecleaning")
                     {
-                        string s1 = clsStaticHelper.AppSetting("PoolReceiveAddress_test", "");
-                        clsStaticHelper.AuditWithdrawals("main");
-                        string sMinerGuid2 = MinerGuid("desktop");
                         sNetworkID = "main";
+                        for (int i = 0; i < 50; i++ )
+                        {
+                            string sql = "Update system set value=value+1 where systemkey='main_housecleaning'";
+                            clsStaticHelper.BatchExec3(sql, Application);
+                        }
                     }
-                    
-                if (clsStaticHelper.LogLimiter() > 998)   clsStaticHelper.Housecleaning("main", this.Server, this.Application, true);
+
 
                 long lMaxThreadCount = 40;
                 if (Conversion.Val(sThreadID1) > lMaxThreadCount)
@@ -562,14 +687,16 @@ namespace BiblePayPool2018
                 string sResponse = "";
                 if (!clsStaticHelper.ValidateNetworkID(sNetworkID))
                 {
-                    clsStaticHelper.Log("Invalid network id ");
                     Response.Write("<ERROR>INVALID NETWORK ID</ERROR><END></HTML>");
                     return;
                 }
+                ////////////////////////////////////////////// READY TO MINE ///////////////////////////////////////////////////////////////////////////
+                double dAutoWithdrawsEnabled = 0;
+                string sMinerGuid = MinerGuid(sMiner, ref dAutoWithdrawsEnabled);
 
-                string sMinerGuid = MinerGuid(sMiner);
-
-                if (sAction !="get_products" && sAction != "buy_product" && sAction != "get_product_escrow_address" && sAction != "order_status" && sAction != "order" && sAction != "trades" && sAction != "cancel" && sAction != "escrow" && sAction != "execution_history" && sAction != "finishtrades" && sAction != "process_escrow")
+                if (sAction !="get_products" && sAction != "buy_product" 
+                    && sAction != "get_product_escrow_address" && sAction != "order_status" && sAction != "order" && sAction != "trades" 
+                    && sAction != "cancel" && sAction != "escrow" && sAction != "execution_history" && sAction != "finishtrades" && sAction != "process_escrow")
                 {
                     // These two commands use the BBP address instead for the PK
                     if (sMinerGuid.Length == 0)
@@ -578,16 +705,21 @@ namespace BiblePayPool2018
                         return;
                     }
                 }
-                string sPoolRecvAddress = clsStaticHelper.AppSetting("PoolReceiveAddress_" + sNetworkID, "");
+              
+                string sPoolRecvAddress = clsStaticHelper.GetNextPoolAddress(sNetworkID, Server, this.Application);
+                
                 if (sAction == "cancel") sAction = "order";
 
                 switch (sAction)
                 {
                     case "process_escrow":
                          // update these matches with a guid here 
-                         string sql11 = "Select * from Trade where networkid='" + sNetworkID + "' and (match is not null OR MatchSell Is Not Null) and Address='" 
-                            + sBBPAddress + "' and EscrowTxId is null";
-                        DataTable dt = clsStaticHelper.mPD.GetDataTable(sql11);
+                         string sql11 = "Select * from Trade where networkid='" 
+                            + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                            + "' and (match is not null OR MatchSell Is Not Null) and Address='" 
+                            + clsStaticHelper.PurifySQL(sBBPAddress,100)
+                            + "' and EscrowTxId is null";
+                        DataTable dt = clsStaticHelper.mPD.GetDataTable2(sql11);
                         string sTrades = "<RESPONSE><ESCROWS>";
                         for (int i = 0; i < dt.Rows.Count; i++)
                         {
@@ -622,8 +754,10 @@ namespace BiblePayPool2018
                         // Move orders to next status:
                         SendWalletOrders(sNetworkID, sPoolRecvAddress);
                         // Show the order statuses: 
-                        string sql = "Select * from Orders where networkid='" + sNetworkID + "' and Address='" + sBBPAddress + "' ";
-                        DataTable dt10 = clsStaticHelper.mPD.GetDataTable(sql);
+                        string sql = "Select * from Orders where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                            + "' and Address='" + clsStaticHelper.PurifySQL(sBBPAddress,100)
+                            + "' ";
+                        DataTable dt10 = clsStaticHelper.mPD.GetDataTable2(sql);
                         string sO = "<RESPONSE><ORDERSTATUS>";
                         for (int i = 0; i < dt10.Rows.Count; i++)
                         {
@@ -650,10 +784,11 @@ namespace BiblePayPool2018
                         Response.Write(sO);
                         break;
                     case "execution_history":
-                        // MoveCompletedTrades(sNetworkID);
-                        string sql12 = "Select * from TradeComplete where networkid='" + sNetworkID + "' and Address='"
-                           + sBBPAddress + "' and executed > getdate()-7 order by executed";
-                        DataTable dt0 = clsStaticHelper.mPD.GetDataTable(sql12);
+                        string sql12 = "Select * from TradeComplete where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                            + "' and Address='"
+                           + clsStaticHelper.PurifySQL(sBBPAddress,100)
+                           + "' and executed > getdate()-7 order by executed";
+                        DataTable dt0 = clsStaticHelper.mPD.GetDataTable2(sql12);
                         string sTradeHistory = "<RESPONSE><TRADEHISTORY>";
                         for (int i = 0; i < dt0.Rows.Count; i++)
                         {
@@ -671,53 +806,19 @@ namespace BiblePayPool2018
                             sTradeHistory += sRow;
                         }
                         sTradeHistory += "</TRADEHISTORY></RESPONSE></EOF></HTML>";
-                        // SendMutatedTransactions(sNetworkID);
                         Response.Write(sTradeHistory);
                         break;
-
-                    case "escrow":
-                        // in this case we update the escrowtxid on the transaction
-                        Trade t1 = DepersistTrade(sSolution);
-                        string sql99 = "Update Trade set VOUT='" + t1.VOUT.ToString() + "',EscrowTXID='" + t1.EscrowTXID + "' where hash='" + t1.Hash + "'";
-                        clsStaticHelper.mPD.Exec(sql99);
-                        // SendMutatedTransactions(sNetworkID);
-                        break;
+                 
                     case "finishtrades":
                         break;
                         
-                    case "order":
-                        Trade t = DepersistTrade(sSolution);
-                        // if action == CANCEL, cancel the orders
-                        t.Action = t.Action.ToUpper();
-                        if (t.Action == "CANCEL")
-                        {
-                            string sql4 = "Delete from Trade where quantity='" + t.Quantity.ToString() + "' address='" + t.Address + "' and symbol='" + t.Symbol 
-                                + "' and networkid='" + sNetworkID + "' and (match is null and matchell is null) and escrowtxid is null and executed is null \r\n ";
-                            clsStaticHelper.mPD.Exec(sql4);
-                        }
-                        else
-                        {
-                            // delete any records for this address with same symbol and action
-                            string sql4 = "Delete from Trade where address='" + t.Address + "' and networkid = '" + sNetworkID + "' and symbol='" + t.Symbol + "' and act='" 
-                                + t.Action + "' and quantity = '" + t.Quantity.ToString() + "' and (match is null and matchsell is null) \r\n";
-                            clsStaticHelper.mPD.ExecResilient(sql4);
-                            sql4 = "Insert into Trade (id,address,hash,time,added,ip,act,symbol,quantity,price,total,networkid) values (newid(),'"
-                                + t.Address + "','" + t.Hash + "','" + t.Time.ToString() + "',getdate(),'','"
-                                + t.Action + "',"
-                                + "'" + t.Symbol + "','" + t.Quantity.ToString() + "','" + t.Price.ToString() + "','" + t.Total.ToString() + "','" + sNetworkID + "')";
-                            clsStaticHelper.mPD.ExecResilient(sql4);
-                            sql4 = "exec ordermatch '" + sNetworkID + "'";
-                            clsStaticHelper.mPD.ExecResilient(sql4);
-                        }
-                  
-                        string sTradeResponse = "<RESPONSE>OK</RESPONSE></EOF></HTML>";
-                        Response.Write(sTradeResponse);
-                        break;
+                   
                     case "get_products":
                         try
                         {
-                            sql = "Select * from Products where networkid='" + sNetworkID + "' and inwallet=1";
-                            dt = clsStaticHelper.mPD.GetDataTable(sql);
+                            sql = "Select * from Products where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                                + "' and inwallet = 1";
+                            dt = clsStaticHelper.mPD.GetDataTable2(sql);
                             string sQ = "<RESPONSE><PRODUCTS>";
                             for (int i = 0; i < dt.Rows.Count; i++)
                             {
@@ -774,9 +875,18 @@ namespace BiblePayPool2018
                             string sPhone = clsStaticHelper.ExtractXML(sSolution, "<PHONE>", "</PHONE>").ToString();
                             double dAmt = ToDouble(clsStaticHelper.ExtractXML(sSolution, "<AMOUNT>", "</AMOUNT>"));
                             // Verify the address
-                            string sql80 = "Update Users Set Updated=getdate(),DelName='" + sName + "',Address1='" + sAddress1 + "',Address2='" + sAddress2 + "',City='" + sCity + "',State='"
-                                + sState + "',Zip='" + sZip + "',Country='US',Phone='" + sPhone + "' WHERE ID='" + sBBPUserGuid + "'";
-                            clsStaticHelper.mPD.Exec(sql80);
+                            string sql80 = "Update Users Set Updated=getdate(),DelName='" 
+                                + clsStaticHelper.PurifySQL(sName,125)
+                                + "',Address1='" + clsStaticHelper.PurifySQL(sAddress1,125)
+                                + "',Address2='" + clsStaticHelper.PurifySQL(sAddress2,125)
+                                + "',City='" + clsStaticHelper.PurifySQL(sCity,125)
+                                + "',State='"
+                                + clsStaticHelper.PurifySQL(sState,25)
+                                + "',Zip='" + clsStaticHelper.PurifySQL(sZip,25)
+                                + "',Country='US',Phone='" + clsStaticHelper.PurifySQL(sPhone,100)
+                                + "' WHERE ID='" + clsStaticHelper.GuidOnly(sBBPUserGuid)
+                                + "'";
+                            clsStaticHelper.mPD.Exec2(sql80);
                             // Verify Product Exists
                             double dPrice = GetProductPrice(sProdID, sNetworkID);
                             if (dPrice == 0)
@@ -796,7 +906,8 @@ namespace BiblePayPool2018
 
                             if (dPrice != dAmt && sDryRun != "DRY")
                             {
-                                string sNarr = "<RESPONSE><ERR>Payment received for " + dAmt.ToString() + "BBP differs from cost of "    + dPrice.ToString() + "BBP</ERR></RESPONSE></EOF><END></HTML>";
+                                string sNarr = "<RESPONSE><ERR>Payment received for " + dAmt.ToString() + "BBP differs from cost of "   
+                                    + dPrice.ToString() + "BBP</ERR></RESPONSE></EOF><END></HTML>";
                                 Response.Write(sNarr);
                                 return;
                             }
@@ -806,18 +917,31 @@ namespace BiblePayPool2018
                             bool banned = false;
                             if (sNetworkID == "test")
                             {
-                                string sql199 = "Select count(*) ct from Orders where networkid='" + sNetworkID + "' and WalletOrder=1 and txid is not null and address='" + sBBPAddress + "'";
-                                double dBot = clsStaticHelper.mPD.GetScalarDouble(sql199, "ct");
+                                string sql199 = "Select count(*) ct from Orders where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                                    + "' and WalletOrder=1 and txid is not null and address='" + clsStaticHelper.PurifySQL(sBBPAddress,100)
+                                    + "'";
+                                double dBot = clsStaticHelper.mPD.GetScalarDouble2(sql199, "ct");
                                 if (dBot > 0) banned =true;
                             }
                             if (sDryRun != "DRY" && !banned)
                             {
                                 // Ensure this guy hasnt bought any other testnet orders
-                                sql = "Insert into Orders (id,added) values ('" + sOrderGuid + "',getdate())";
-                                clsStaticHelper.mPD.Exec(sql);
-                                sql = "Update Orders Set NetworkID='" + sNetworkID + "',WalletOrderProcessed=0,Address='" + sBBPAddress + "',WalletOrder=1,Userid='" + sBBPUserGuid + "',ProductId='"
-                                    + sProdID + "',Title='',Added=getdate(),Status1='Placed',TXID='" + sTXID + "',Amount='" + dAmt.ToString() + "' where id = '" + sOrderGuid + "'";
-                                clsStaticHelper.mPD.Exec(sql);
+                                sql = "Insert into Orders (id,added) values ('" + clsStaticHelper.GuidOnly(sOrderGuid)
+                                    + "',getdate())";
+                                clsStaticHelper.mPD.Exec2(sql);
+                                sql = "Update Orders Set NetworkID='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                                    + "',WalletOrderProcessed=0,Address='" 
+                                    + clsStaticHelper.PurifySQL(sBBPAddress,100)
+                                    + "',WalletOrder=1,Userid='" + clsStaticHelper.GuidOnly(sBBPUserGuid)
+                                    + "',ProductId='"
+                                    + clsStaticHelper.PurifySQL(sProdID,100)
+                                    + "',Title='',Added=getdate(),Status1='Placed',TXID='" 
+                                    + clsStaticHelper.PurifySQL(sTXID,125)
+                                    + "',Amount='" 
+                                    + dAmt.ToString() 
+                                    + "' where id = '" + clsStaticHelper.GuidOnly(sOrderGuid)
+                                    + "'";
+                                clsStaticHelper.mPD.Exec2(sql);
                             }
                             else
                             {
@@ -833,12 +957,14 @@ namespace BiblePayPool2018
                         }
                         break;
                     case "trades":
-                        string sql5 = "Select * from trade where networkid='" + sNetworkID + "' AND EscrowTxId is null and executed is null and match is null";
-                        DataTable dt2 = clsStaticHelper.mPD.GetDataTable(sql5);
+                        string sql5 = "Select * from trade where networkid='" + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                            + "' AND EscrowTxId is null and executed is null and match is null";
+                        DataTable dt2 = clsStaticHelper.mPD.GetDataTable2(sql5);
                         string sTrades2 = "<RESPONSE><TRADES>";
                         for (int i = 0; i < dt2.Rows.Count; i++)
                         {
-                            string sRow = GetXML(dt2.Rows[i]["time"], "TIME") + GetXML(dt2.Rows[i]["act"], "ACTION") + GetXML(dt2.Rows[i]["symbol"], "SYMBOL") 
+                            string sRow = GetXML(dt2.Rows[i]["time"], "TIME") 
+                                + GetXML(dt2.Rows[i]["act"], "ACTION") + GetXML(dt2.Rows[i]["symbol"], "SYMBOL") 
                                 + GetXML(dt2.Rows[i]["Address"], "ADDRESS") + GetXML(dt2.Rows[i]["quantity"], "QUANTITY") + GetXML(dt2.Rows[i]["price"], "PRICE");
                             sRow += "<ROW><TRADE>";
                             sTrades2 += sRow;
@@ -863,9 +989,23 @@ namespace BiblePayPool2018
                             Response.Write(sResponse);
                             return;
                         }
+                        if (dAutoWithdrawsEnabled == 0 && false)
+                        {
+                            sResponse = "<RESPONSE>AUTO WITHDRAWS MUST BE ENABLED, PLEASE UPDATE YOUR BIBLEPAY RECEIVING ADDRESS IN THE POOL.</RESPONSE><ERROR>AUTO_WITHDRAWS_MUST_BE_ENABLED</ERROR><EOF>";
+                            Response.Write(sResponse);
+                            return;
+                        }
                         string sHashTarget = GetHashTarget(sMinerGuid, sNetworkID);
-                        string sql100 = "exec InsWork '" + sNetworkID + "','" + sMinerGuid + "','" + sThreadID1 + "','" + sMiner + "','" + sHashTarget + "','" + sWork1 + "','" + sIP + "'";
-                        clsStaticHelper.mPD.Exec(sql100);
+                        string sql100 = "exec InsWork '" 
+                            + clsStaticHelper.VerifyNetworkID(sNetworkID)
+                            + "','" + clsStaticHelper.GuidOnly(sMinerGuid)
+                            + "','" + clsStaticHelper.GetDouble(sThreadID1).ToString()
+                            + "','" + clsStaticHelper.PurifySQL(sMiner,100)
+                            + "','" + clsStaticHelper.PurifySQL(sHashTarget,100)
+                            + "','" + clsStaticHelper.PurifySQL(sWork1,100)
+                            + "','" + clsStaticHelper.PurifySQL(sIP,100)
+                            + "'";
+                        clsStaticHelper.mPD.Exec2(sql100, false);
                         sResponse = "<RESPONSE> <ADDRESS>" + sPoolRecvAddress + "</ADDRESS><HASHTARGET>" + sHashTarget 
                             + "</HASHTARGET><MINERGUID>" + sMinerGuid + "</MINERGUID><WORKID>" + sWork1 + "</WORKID></RESPONSE>";
                         sResponse = sResponse + "<END></HTML><EOF></EOF>" + Constants.vbCrLf;
@@ -886,32 +1026,54 @@ namespace BiblePayPool2018
                                 return;
                         }
                         // Insert entire solution record first, record validated in service
-                        string sThreadStart = vSolution[9];
-                        string sHashCounter = vSolution[10];
-                        string sTimerStart = vSolution[11];
-                        string sTimerEnd = vSolution[12];
+                        double dThreadStart = clsStaticHelper.GetDouble(vSolution[9]);
+                        double dHashCounter = clsStaticHelper.GetDouble(vSolution[10]);
+                        double dTimerStart = clsStaticHelper.GetDouble(vSolution[11]);
+                        double dTimerEnd = clsStaticHelper.GetDouble(vSolution[12]);
+
                         // Calculate Thread HPS and Box HPS (this is for HPS reading only, not for HPS2)
-                        double nBoxHPS = 1000.0 * Conversion.Val(sHashCounter) / (Conversion.Val(sTimerEnd) - Conversion.Val(sTimerStart) + 0.01);
-                        string sThreadId = vSolution[7];
-                        string sThreadWork = vSolution[8];
-                        double nThreadHPS = 1000.0 * Conversion.Val(sThreadWork) / (Conversion.Val(sTimerEnd) - Conversion.Val(sThreadStart) + 0.01);
+                        double nBoxHPS = 1000.0 * dHashCounter / ((dTimerEnd) - (dTimerStart) + 0.01);
+                        double dThreadId = clsStaticHelper.GetDouble(vSolution[7]);
+                        double dThreadWork = clsStaticHelper.GetDouble(vSolution[8]);
+                        double nThreadHPS = 1000.0 * (dThreadWork) / ((dTimerEnd) - (dThreadStart) + 0.01);
                         string sWorkId2 = vSolution[6];
                         string sBlockHash = vSolution[0];
                         string sBlockTime = vSolution[1];
                         string sPrevBlockTime = vSolution[2];
                         string sPrevHeight = vSolution[3];
                         string sHashSolution = vSolution[4];
+                        string sBlockHash1 = "";
+                        string sTxHash1 = "";
                         double nNonce = 0;
                         if (vSolution.Length > 13) nNonce = clsStaticHelper.GetDouble(vSolution[13]);
-
+                        if (vSolution.Length > 14) sBlockHash1 = vSolution[14];
+                        if (vSolution.Length > 15) sTxHash1 = vSolution[15];
+                        string sSol2 = sSolution;
+                        if (sSol2.Length > 400) sSol2 = sSol2.Substring(0, 398);
+                        
                         // Track users OS so we can have some nice metrics of speed per OS, and total pool speed, etc:
-                        string sql2 = "Update Work Set OS='" + sOS + "',endtime=getdate(),ThreadStart='"
-                                + Strings.Trim(sThreadStart) + "',solution='" + sSolution + "',Nonce='" + nNonce.ToString() + "',HashCounter='" + Strings.Trim(sHashCounter)
-                                + "',TimerStart='" + Strings.Trim(sTimerStart) + "',TimerEnd='"  + Strings.Trim(sTimerEnd) + "',ThreadHPS='"
-                               + Strings.Trim(nThreadHPS.ToString())        + "',ThreadID='" + Strings.Trim(sThreadId) + "',ThreadWork='" + Strings.Trim(sThreadWork)
-                                  + "',BoxHPS='"            + Strings.Trim(nBoxHPS.ToString()) + "' where id = '" + sWorkId2 + "' and ENDTIME IS NULL ";
+                        string sql2 = "Update Work Set OS='" + clsStaticHelper.PurifySQL(sOS,50)
+                            + "',endtime=getdate(),ThreadStart='"
+                                + dThreadStart.ToString()
+                                + "',SolutionBlockHash='" + sBlockHash1 + "',SolutionTxHash='" + sTxHash1 + "',solution='" 
+                                + sSol2
+                                + "',Nonce='" + nNonce.ToString() 
+                                + "',HashCounter='" + dHashCounter.ToString()
+                                + "',TimerStart='" + dTimerStart.ToString()
+                                 + "',TimerEnd='"  + dTimerEnd.ToString()
+                                  + "',ThreadHPS='"
+                                 + nThreadHPS.ToString()
+                                 + "',ThreadID='" + dThreadId.ToString()
+                                  + "',ThreadWork='" 
+                                  + dThreadWork.ToString() 
+                                  + "',BoxHPS='"      
+                                  + nBoxHPS.ToString()
+                                  + "' where id = '" + clsStaticHelper.GuidOnly(sWorkId2)
+                                  + "' and ENDTIME IS NULL ";
                         // Execute this in a way that overcomes deadlocks:
-                        clsStaticHelper.mPD.ExecResilient(sql2);
+
+                        clsStaticHelper.mPD.Exec2(sql2, false);
+
                         string sStatus = "OK";
                         sResponse = "<RESPONSE><STATUS>" + sStatus + "</STATUS><WORKID>"
                                 + sWorkId2 + "</WORKID></RESPONSE><END></HTML>" + Constants.vbCrLf;
@@ -934,10 +1096,6 @@ namespace BiblePayPool2018
                     if (!bMask) clsStaticHelper.Log("ACTION.ASPX: " + ex.Message + "," + s);
                     try
                     {
-                        if (ex.Message.ToLower().Contains("connection"))
-                        {
-                            // Could be used to add code to recover from SQL connection failures, but I recommend fixing the root of the problem instead.
-                        }
                         Response.Write("UNKNOWN TCP/IP ERROR<END>");
                     }
                     catch (Exception ex2)

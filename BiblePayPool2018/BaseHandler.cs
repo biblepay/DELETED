@@ -45,9 +45,8 @@ namespace BiblePayPool2018
                 string style = "";
                 USGDFramework.Data d = new USGDFramework.Data();
                 string sURL1 = HttpContext.Current.Request.Url.ToString();
-                
                 string sMenu = d.GetTopLevelMenu(sURL1);
-                if (Sys.Theme==null) Sys.Theme="BLACK";
+                if (Sys.Theme==null) Sys.Theme="Biblepay";
                 string sTheme = "css/" + Sys.Theme + ".css";
                 string sJQuery = "<script src='https://code.jquery.com/jquery-1.12.4.js'></script><script src='https://code.jquery.com/ui/1.12.1/jquery-ui.js'></script>";
                 string sCss = " <link rel=stylesheet href='https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css'> "
@@ -57,7 +56,10 @@ namespace BiblePayPool2018
                 // Top banner (Note this is dynamic - if you come in from the pool, it says Biblepay Pool, but if you come in from accountability.biblepay.org, it says "Biblepay Accountability"
                 
                 string sSiteURL = HttpContext.Current.Request.Url.ToString();
+                bool bDAHF = (HttpContext.Current.Request.Url.ToString().ToUpper().Contains("DAHF"));
+
                 string sSiteBanner = sSiteURL.ToUpper().Contains("ACCOUNTABILITY") ? "Biblepay Accountability" : "Biblepay Pool";
+                if (bDAHF) sSiteBanner = "BiblePay DAHF";
 
                 string sBanner = "<div id='top_banner'><table width='100%' class='title2'> <tr>         <td  rowspan=2 width=15%>"
                  + "<img class='content companylogo' id='org_image' src=Images/logo.png width=90 height=90 /> </td> "

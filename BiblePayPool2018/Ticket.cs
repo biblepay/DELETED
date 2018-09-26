@@ -131,8 +131,9 @@ namespace BiblePayPool2018
         public WebReply TicketHistory_RowClick()
         {
             Sys.SetObjectValue("Ticket List","TicketHistoryGuid", Sys.LastWebObject.guid);
-            string sql = "Select Tickethistory.ParentID from ticketHistory where tickethistory.id = '" + Sys.LastWebObject.guid + "'";
-            DataTable dt = Sys._data.GetDataTable(sql);
+            string sql = "Select Tickethistory.ParentID from ticketHistory where tickethistory.id = '" + clsStaticHelper.GuidOnly(Sys.LastWebObject.guid)
+                + "'";
+            DataTable dt = Sys._data.GetDataTable2(sql);
             string sParentID = dt.Rows[0]["ParentID"].ToString();
             Sys.SetObjectValue("Ticket List","TicketViewGuid", sParentID);
             //Update the Ticket View section

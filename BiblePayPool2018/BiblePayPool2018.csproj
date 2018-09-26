@@ -115,6 +115,7 @@
     <Content Include="images\glyphicons-halflings.png" />
     <Content Include="images\logo.png" />
     <Content Include="images\logoP.png" />
+    <Content Include="ipfs.aspx" />
     <Content Include="LetterWritingTips.htm" />
     <Content Include="scripts\Core.js" />
     <Content Include="scripts\jquery-3.1.1.min.js" />
@@ -143,12 +144,18 @@
     <Compile Include="BaseHandler.cs" />
     <Compile Include="clsDeprecated.cs" />
     <Compile Include="clsStaticHelper.cs" />
-    <Compile Include="Cryptography.cs" />
     <Compile Include="DatabaseOperations.cs" />
     <Compile Include="Dialog.cs" />
     <Compile Include="Document.cs" />
     <Compile Include="Admin.cs" />
     <Compile Include="Home.cs" />
+    <Compile Include="ipfs.aspx.cs">
+      <DependentUpon>ipfs.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ipfs.aspx.designer.cs">
+      <DependentUpon>ipfs.aspx</DependentUpon>
+    </Compile>
     <Compile Include="Login.cs" />
     <Compile Include="Picture.cs" />
     <Compile Include="SQLDetective.cs" />

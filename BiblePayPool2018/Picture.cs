@@ -89,8 +89,9 @@ namespace BiblePayPool2018
 
         public WebReply PictureGallery()
         {
-            string sql = "Select ID from Picture where Picture.Organization='" + Sys.Organization.ToString() + "' and Picture.Deleted=0";
-            DataTable dt = Sys._data.GetDataTable(sql);
+            string sql = "Select ID from Picture where Picture.Organization='" + clsStaticHelper.GuidOnly(Sys.Organization.ToString())
+                + "' and Picture.Deleted=0";
+            DataTable dt = Sys._data.GetDataTable2(sql);
             string html = "<DIV>";
             for (int iRows = 0; iRows < dt.Rows.Count; iRows++)
             {

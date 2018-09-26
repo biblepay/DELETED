@@ -9,7 +9,6 @@ using System.Net;
 using System.Net.Mail;
 using System.Reflection;
 using System.Web;
-using ConfigurationSettings = System.Configuration.ConfigurationManager;
 
 namespace ExtensionMethods
 {
@@ -69,7 +68,7 @@ namespace BiblePayPool2018
     {
         public SystemObject Sys = null;
         // This is also the Gui Version
-        public long Version = 2030;
+        public long Version = 2036;
 
         public string ViewGuid 
         { 
@@ -143,6 +142,7 @@ namespace BiblePayPool2018
         public string usgdvalue;
         public string caption;
         public string ErrorTextNew;
+        public string Checked;
         public List<SystemObject.LookupValue> LookupValues;
     }
 
@@ -190,7 +190,7 @@ namespace BiblePayPool2018
                                     sql += "," + d.ParentGuiField2;
                                 }
                                 sql += " FROM " + d.ParentTable;
-                                DataTable dt1 = Sys._data.GetDataTable(sql);
+                                DataTable dt1 = Sys._data.GetDataTable2(sql);
                                 for (int y = 0; y < dt1.Rows.Count; y++)
                                 {
                                     string Caption = dt1.Rows[y][d.ParentGuiField1].ToString();
@@ -271,6 +271,7 @@ namespace BiblePayPool2018
         public string UserGuid;
         public long lOrphanNews;
         public string Theme;
+        public int DAHF;
         public Guid Organization;
         public SectionMode LastSectionMode = SectionMode.View;
         public bool bFailedValidation = false;
@@ -299,7 +300,7 @@ namespace BiblePayPool2018
         public string GetViewFieldsForSection(string sSectionName, out string sDependentSection,out string sDependentSectionFields)
         {
             string sql = "Select * FROM SECTION WHERE Name='" + sSectionName + "' and deleted = 0";
-            DataTable dt2 = this._data.GetDataTable(sql);
+            DataTable dt2 = this._data.GetDataTable2(sql,false);
             string Fields = dt2.Rows[0]["Fields"].ToString();
             sDependentSection = dt2.Rows[0]["DependentSection"].ToString();
             sDependentSectionFields = dt2.Rows[0]["DependentFields"].ToString();
@@ -327,8 +328,9 @@ namespace BiblePayPool2018
 
         public string GetLookupValues(string sTable,string sFieldName, out string sMethodName)
         {
-            string sql = "Select * FROM LOOKUP WHERE TableName='" + sTable + "' and Field='" + sFieldName + "'";
-            DataTable dt2 = this._data.GetDataTable(sql);
+            string sql = "Select * FROM LOOKUP WHERE TableName='" 
+                + sTable + "' and Field='" + sFieldName + "'";
+            DataTable dt2 = this._data.GetDataTable2(sql);
             if (dt2.Rows.Count == 0)
             {
                 sMethodName = string.Empty;
@@ -360,9 +362,10 @@ namespace BiblePayPool2018
             {
             }
 
-            string sql = "Select ID,Sections from PAGE where deleted=0 and organization = '" + Organization.ToString() + "' and name='" + sPage + "'";
+            string sql = "Select ID,Sections from PAGE where deleted=0 and organization = '" + clsStaticHelper.GuidOnly(Organization.ToString())
+                + "' and name='" + sPage + "'";
             // This is the database driven version of the Page
-            DataTable dt = _data.GetDataTable(sql);
+            DataTable dt = _data.GetDataTable2(sql);
             WebReply wrMaster = new WebReply();
             if (dt.Rows.Count > 0)
             {
@@ -372,8 +375,9 @@ namespace BiblePayPool2018
                 {
                       // Add the sections to the page
                       string sSectionName = vSections[i];
-                      sql = "Select * From Section where Name='" + sSectionName + "' and deleted=0";
-                      DataTable dtSection = _data.GetDataTable(sql);
+                      sql = "Select * From Section where Name='" + clsStaticHelper.PurifySQL(sSectionName,100)
+                        + "' and deleted=0";
+                      DataTable dtSection = _data.GetDataTable2(sql);
                       if (dtSection.Rows.Count > 0)
                       {
                         string sClass = dtSection.Rows[0]["Class"].ToString();
@@ -430,7 +434,7 @@ namespace BiblePayPool2018
 
         private bool ValidateSectionUsingSectionRules(string sSection, string sTableName)
         {
-            DataTable dt = _data.GetDataTable("Select  * FROM SECTIONRULES WHERE SECTIONID=(Select ID from Section where name='" + sSection + "')");
+            DataTable dt = _data.GetDataTable2("Select  * FROM SECTIONRULES WHERE SECTIONID=(Select ID from Section where name='" + sSection + "')");
             bool bFailed = false;
             for (int iRows = 0;iRows < dt.Rows.Count; iRows++)
             {
@@ -550,7 +554,7 @@ namespace BiblePayPool2018
             {
                 string sql10 = "Insert into " + sTable + " (id,added,Deleted,addedby,organization,ParentID) values ('" 
                     + _ID.ToString() + "',getdate(),0,'" + this.UserGuid.ToString() + "','" + sOrgGuid + "','" + sParentID + "')";
-                _data.Exec(sql10);
+                _data.Exec2(sql10);
                 ((BiblePayPool2018.USGDGui)caller).ViewGuid = _ID;
        
             }
@@ -581,7 +585,7 @@ namespace BiblePayPool2018
             {
                   string sDependentGuid = Guid.NewGuid().ToString();
                   sql = "Insert into " + sDependentSection + " (id,deleted,added) values ('" + sDependentGuid.ToString() + "',0,getdate());";
-                  _data.Exec(sql);
+                  _data.Exec2(sql);
                   sql = "Update " + sDependentSection + " Set Updated=GetDate(),ParentId = '" + _ID + "',";
                   vFields = sDependentSectionFields.Split(new string[] { "," }, StringSplitOptions.None);
                   for (int i = 0; i < vFields.Length; i++)
@@ -628,7 +632,7 @@ namespace BiblePayPool2018
               List<SystemObject.LookupValue> lLV = new List<SystemObject.LookupValue>();
               string sql = "Select id," + sColumn + " from " + sTable + " where organization = '" + this.Organization.ToString() + "'";
               if (sWhere.Length > 0) sql += " AND " + sWhere;
-              DataTable dt = _data.GetDataTable(sql);
+              DataTable dt = _data.GetDataTable2(sql);
               for (int i = 0; i < dt.Rows.Count; i++)
               {
                        string sValue = dt.Rows[i][sColumn].ToString();
@@ -649,8 +653,9 @@ namespace BiblePayPool2018
                 string s1 = string.Empty;
                 string s2 = string.Empty;
                 string Fields = GetViewFieldsForSection(sSectionName, out s1, out s2);
-                string sql = "Select * FROM " + sTable + " WHERE ID='" + sID + "' and " + sTable + ".deleted=0";
-                DataTable dt = this._data.GetDataTable(sql);
+                string sql = "Select * FROM " + sTable + " WHERE ID='" + clsStaticHelper.GuidOnly(sID)
+                + "' and " + sTable + ".deleted=0";
+                DataTable dt = this._data.GetDataTable2(sql);
                 if (dt.Rows.Count > 0)
                 {
                      string[] vFields = Fields.Split(new string[] { "," }, StringSplitOptions.None);
@@ -682,11 +687,12 @@ namespace BiblePayPool2018
         {
             if (sPictureGuid == String.Empty) return string.Empty;
 
-            string sql = "Select ID,FullFileName,Extension from Picture where id = '" + sPictureGuid + "' and deleted=0";
-            DataTable dt = _data.GetDataTable(sql);
+            string sql = "Select ID,FullFileName,Extension from Picture where id = '" + clsStaticHelper.GuidOnly(sPictureGuid) + "' and deleted=0";
+            DataTable dt = _data.GetDataTable2(sql);
             if (dt.Rows.Count > 0)
             {
-                string sURL = AppSetting("WebSite", "WEBSITE_NOT_SET") + "SAN/Images/" + sPictureGuid.ToString() + "" + dt.Rows[0]["Extension"].ToString();
+                string sURL = USGDFramework.clsStaticHelper.GetConfig("WebSite") 
+                    + "SAN/Images/" + sPictureGuid.ToString() + "" + dt.Rows[0]["Extension"].ToString();
                 return sURL;
             }
             
@@ -727,15 +733,17 @@ namespace BiblePayPool2018
                     return false;
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return false;
+                string sExcep = ex.Message;
+
+              return false;
             }
         }
 
         public string SqlToCSV(string sql)
         {
-            DataTable dt = _data.GetDataTable(sql);
+            DataTable dt = _data.GetDataTable2(sql);
             string data = "";
             for (int rows = 0; rows < dt.Rows.Count; rows++)
             {
@@ -762,12 +770,12 @@ namespace BiblePayPool2018
                
             }
             string sFileName = Guid.NewGuid().ToString() + ".csv";
-            string sSan = clsStaticHelper.AppSetting("SAN", "SAN_NOT_SET");
+            string sSan = USGDFramework.clsStaticHelper.GetConfig("SAN");
             string sTargetPath = sSan + sFileName;
             System.IO.StreamWriter sw = new System.IO.StreamWriter(sTargetPath, true);
             sw.WriteLine(data);
             sw.Close();
-            string sURL = clsStaticHelper.AppSetting("WebSite", "http://myurl.biblepay.org/") + "SAN/" + sFileName;
+            string sURL = USGDFramework.clsStaticHelper.GetConfig("WebSite") + "SAN/" + sFileName;
             return sURL;
         }
 
@@ -778,27 +786,28 @@ namespace BiblePayPool2018
             bool isSend = false;
             System.Net.Mail.MailMessage mailmsg = new System.Net.Mail.MailMessage();
             System.Net.Mail.MailAddress mailfrom = 
-                new System.Net.Mail.MailAddress(AppSetting("smtpreplytoemail","Contact@biblepay.org"), 
-                AppSetting("smtpreplytoname","Biblepay Support"));
+                new System.Net.Mail.MailAddress(USGDFramework.clsStaticHelper.GetConfig("smtpreplytoemail"),
+                USGDFramework.clsStaticHelper.GetConfig("smtpreplytoname"));
             System.Net.Mail.SmtpClient smtp = new System.Net.Mail.SmtpClient();
             strTo.Replace(" ", "");
             string[] strRecipients = Strings.Split(strTo, ";");
-            System.Net.NetworkCredential smtpuser = new System.Net.NetworkCredential(AppSetting("smtpuser","").ToString(), AppSetting("smtppassword","").ToString());
+            System.Net.NetworkCredential smtpuser = new System.Net.NetworkCredential(USGDFramework.clsStaticHelper.GetConfig("smtpuser").ToString(),
+                USGDFramework.clsStaticHelper.GetConfig("smtppassword_E").ToString());
             
             mailmsg.To.Add(strRecipients[0]);
             mailmsg.IsBodyHtml = blnHTML;
             mailmsg.From = mailfrom;
             mailmsg.Subject = strSubject;
-            if (bCCBiblepay)             mailmsg.Bcc.Add(AppSetting("smtpreplyto", "contact@biblepay.org"));
+            if (bCCBiblepay)  mailmsg.Bcc.Add(USGDFramework.clsStaticHelper.GetConfig("smtpreplyto"));
 
 
             smtp.UseDefaultCredentials = false;
             smtp.EnableSsl = true;
-            smtp.Port = (int)Convert.ToDouble(AppSetting("smtpport", "").ToString());
+            smtp.Port = (int)Convert.ToDouble(USGDFramework.clsStaticHelper.GetConfig("smtpport").ToString());
             
             mailmsg.Body = strBody;
             mailmsg.Priority = MailPriority.High;
-            smtp.Host = AppSetting("smtpserver","").ToString();
+            smtp.Host = USGDFramework.clsStaticHelper.GetConfig("smtpserver").ToString();
             smtp.Credentials = smtpuser;
 
             try
@@ -808,7 +817,10 @@ namespace BiblePayPool2018
             }
             catch (Exception ex)
             {
-                clsStaticHelper.Log("We encountered a problem while sending the outbound e-mail to " + strTo.ToString() + ", port " + smtp.Port.ToString() + ", host " + smtp.Host + ", Email error: " + ex.Message);
+                if (false)
+                {
+                    clsStaticHelper.Log("SendEmail: We encountered a problem while sending the outbound e-mail to " + strTo.ToString() + ", port " + smtp.Port.ToString() + ", host " + smtp.Host + ", Email error: " + ex.Message);
+                }
                 isSend = false;
             }
             return isSend;
@@ -890,7 +902,7 @@ namespace BiblePayPool2018
                 // Get new ID for business objects who need new ID
                 if (sSectionName=="Ticket View")
                 {
-                    double tn = _data.GetScalarDouble("Select max(ticketNumber) ta from Ticket", "ta") + 1;
+                    double tn = _data.GetScalarDouble2("Select max(ticketNumber) ta from Ticket", "ta") + 1;
                     SetObjectValue("Ticket View", "TicketNumber", tn.ToString());
                     SetObjectValue("Ticket View", "SubmittedBy", this.UserGuid.ToString());
                 }
@@ -995,7 +1007,10 @@ namespace BiblePayPool2018
             return Section1;
         }
 
-        public string NetworkID { get; set; }
+        public string NetworkID
+        {
+            get; set;
+        }
         public double mBitnetUseCount = 0;
         public BitnetClient mBitnetMain = null;
         public BitnetClient mBitnetTest = null;
@@ -1004,7 +1019,7 @@ namespace BiblePayPool2018
         {
             try
             {
-                string sDocRoot = AppSetting("LogPath", "c:\\");
+                string sDocRoot = USGDFramework.clsStaticHelper.GetConfig("LogPath");
                 string sPath = sDocRoot + "pool_log.dat";
                 System.IO.StreamWriter sw = new System.IO.StreamWriter(sPath, true);
                 sw.WriteLine(System.DateTime.Now.ToString() + ", " + sData);
@@ -1032,9 +1047,9 @@ namespace BiblePayPool2018
                     }
 
 
-                    bc = new BitnetClient(AppSetting("RPCURL" + sNetworkID, ""));
-                    string sPass = AppSetting("RPCPass" + sNetworkID, "");
-                    NetworkCredential cr = new NetworkCredential(AppSetting("RPCUser" + sNetworkID, ""), sPass);
+                    bc = new BitnetClient(USGDFramework.clsStaticHelper.GetConfig("RPCURL" + sNetworkID));
+                    string sPass = USGDFramework.clsStaticHelper.GetConfig("RPCPass" + sNetworkID + "_E");
+                    NetworkCredential cr = new NetworkCredential(USGDFramework.clsStaticHelper.GetConfig("RPCUser" + sNetworkID), sPass);
                     bc.Credentials = cr;
                     return bc;
             }
@@ -1050,8 +1065,9 @@ namespace BiblePayPool2018
         {
             BitnetClient bc =             InitRPC(this.NetworkID);
             string sAddress = bc.GetNewAddress("");
-            string sql = "Update Users set DespositAddress='" + sAddress + "' where username='" + this.Username + "' and deleted=0";
-            _data.Exec(sql);
+            string sql = "Update Users set DepositAddress='" + sAddress + "' where id='" + clsStaticHelper.GuidOnly(this.UserGuid)
+                + "' and deleted=0";
+            _data.Exec2(sql);
             return sAddress;
         }
         
@@ -1069,14 +1085,7 @@ namespace BiblePayPool2018
                 return -1;
             }
         }
-
-        public string AppSetting(string sName,string sDefault)
-        {
-                string sSetting = (ConfigurationSettings.AppSettings[sName] ?? String.Empty).ToString();
-                if (sSetting==String.Empty) return sDefault;
-                return sSetting;
-        }
-
+        
         public SystemObject(string id)
         {
             ID = id;
@@ -1086,7 +1095,7 @@ namespace BiblePayPool2018
 
         public USGDTable GetUSGDTable(string sql,string sTableName)
         {
-            DataTable t= _data.GetDataTable(sql);
+            DataTable t= _data.GetDataTable2(sql,false);
             USGDTable us = new USGDTable(t,this,sTableName);
             return us;
         }
@@ -1101,7 +1110,7 @@ namespace BiblePayPool2018
         {
             //This allows the system to display field captions, and replace GUIDs in the GUI with actual parent object values in the GUI.
             string sql = "Select * From Dictionary";
-            DataTable dt = _data.GetDataTable(sql);
+            DataTable dt = _data.GetDataTable2(sql,false);
             for (int y = 0; y < dt.Rows.Count; y++)
             {
                 USGDDictionary d = new USGDDictionary();
@@ -1211,8 +1220,9 @@ namespace BiblePayPool2018
         public List<LookupValue> GetListOfOrgUsers()
         {
             //Users who are not deleted,not locked out,not disabled, and that belong to the org
-            string sql = "Select ID,Username from USERS where deleted=0 and organization = '" + Organization.ToString() + "' and BalanceMain > 0 order by UserName";
-            DataTable dt = _data.GetDataTable(sql);
+            string sql = "Select ID,Username from USERS where deleted=0 and organization = '" + clsStaticHelper.GuidOnly(Organization.ToString())
+                + "' and BalanceMain > 0 order by UserName";
+            DataTable dt = _data.GetDataTable2(sql);
             List<LookupValue> llv = new List<LookupValue>();
             for (int i = 0; i < dt.Rows.Count;i++)
             {
@@ -1278,7 +1288,7 @@ namespace BiblePayPool2018
             string key = (section + name).ToUpper();
             if (dictMembers.ContainsKey(key))
             {
-                string sOut = dictMembers[key].value.ToString();
+                string sOut = (dictMembers[key].value ?? "").ToString();
                 sOut = sOut.Replace("[amp]", "&");
                 sOut = sOut.Replace("[plus]", "+");
                 sOut = sOut.Replace("[percent]", "%");
@@ -1289,6 +1299,22 @@ namespace BiblePayPool2018
                 return string.Empty;
             }
         }
+
+        public string GetObjectAttribute(string section, string name, string attribute)
+        {
+            string key = (section + name).ToUpper();
+            if (dictMembers.ContainsKey(key))
+            {
+                string sOut = dictMembers[key].Checked.ToString();
+                // TODO Make it get the attribute through reflection
+                return sOut;
+            }
+            else
+            {
+                return string.Empty;
+            }
+        }
+
 
         public string GetObjectTag(string section, string name)
         {
@@ -1370,11 +1396,11 @@ namespace BiblePayPool2018
         void UpdateRecordWithChangeAudit(string sql,string sTable, string sGuid,bool bIsNew)
         {
             //pull the original values in first
-            string sSelect = "SELECT * FROM " + sTable + " WHERE ID = '" + sGuid + "'";
-            DataTable dt = _data.GetDataTable(sSelect);
-            _data.Exec(sql);
+            string sSelect = "SELECT * FROM " + sTable + " WHERE ID = '" +clsStaticHelper.GuidOnly(sGuid) + "'";
+            DataTable dt = _data.GetDataTable2(sSelect);
+            _data.Exec2(sql);
             // select the changed record
-            DataTable dtChanged = _data.GetDataTable(sSelect);
+            DataTable dtChanged = _data.GetDataTable2(sSelect);
             string sChanges = "";
             int iChangeCount = 0;
             if (dt.Rows.Count > 0 && dtChanged.Rows.Count > 0)
@@ -1398,8 +1424,9 @@ namespace BiblePayPool2018
             {
                 sChanges.Replace("'", "`");
                 string sUserGuid = this.UserGuid.ToString();
-                sql = "INSERT INTO AUDIT2 (ID,TableName,ObjectID,Changes,UpdatedBy,Updated) values (newid(),'" + sTable + "','" + sGuid + "','" + sChanges + "','" + sUserGuid + "',getdate())";
-                _data.Exec(sql);
+                sql = "INSERT INTO AUDIT2 (ID,TableName,ObjectID,Changes,UpdatedBy,Updated) values (newid(),'" + sTable + "','" + sGuid + "','"
+                    + sChanges + "','" + sUserGuid + "',getdate())";
+                _data.Exec2(sql);
             }
 
         }
@@ -1413,15 +1440,14 @@ namespace BiblePayPool2018
             {
                 if (_breadcrumb.Count > 0)
                 {
-                    if (_breadcrumb[_breadcrumb.Count-1].Class == Class)
+                    for (int x = 0; x < _breadcrumb.Count; x++)
                     {
-                        SetObjectValue("","ApplicationMessage", PageName);
-                        return;
-                    }
-                    foreach (Breadcrumb bc in _breadcrumb)
-                    {
-                        if (bc.Class==Class)
+                        string sKey = _breadcrumb[x].Method + _breadcrumb[x].Class;
+                        string mylocalkey = Method + Class;
+
+                        if (sKey == mylocalkey)
                         {
+                            //SetObjectValue("", "ApplicationMessage", PageName);
                             return;
                         }
                     }
@@ -1452,7 +1478,7 @@ namespace BiblePayPool2018
             string HTML = "";
             for (int i = 0; i < _breadcrumb.Count;i++)
             {
-                string sURL = " onclick=postdiv(this,'buttonevent','" + _breadcrumb[i].Class + "','" + _breadcrumb[i].Method + "','');";
+                string sURL = " style='color:lime;cursor:pointer;' onclick=postdiv(this,'buttonevent','" + _breadcrumb[i].Class + "','" + _breadcrumb[i].Method + "','');";
                 HTML += "<span id=11 name=11 " + sURL + "> " + _breadcrumb[i].PageName + "</span>&nbsp;&nbsp;";
             }
             return HTML;

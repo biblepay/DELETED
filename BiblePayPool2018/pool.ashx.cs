@@ -32,13 +32,13 @@ namespace BiblePayPool2018
                                 string sUSGDValue = vCols[3];
                                 string sUSGDCaption = vCols[4];
                                 string sUSGDName = vCols[5];
-
+                                string sChecked = vCols[6];
                                 SystemObject.LookupValue v = new SystemObject.LookupValue();
                                 v.Value = sUSGDValue;
                                 v.Caption = sUSGDCaption;
                                 v.ID = sUSGDID;
                                 v.Name = sUSGDName;
-
+                                
                                 lLV.Add(v);
                             }
              }
@@ -63,15 +63,17 @@ namespace BiblePayPool2018
                     string sValue = vCols[1];
                     string sUSGDID = vCols[2];
                     string sUSGDVALUE = vCols[3];
+                    string sChecked = vCols[4];
                     WebObj fnew = new WebObj();
                     fnew.value = sValue;
                     fnew.name = sName;
                     fnew.usgdid = sUSGDID;
+                    fnew.Checked = sChecked;
                     //Verify divname == sectioname
                     Sys.UpdateObject(g.divname,ref fnew);
 
                 }
-            // and we reply with a replacement div for this section only
+                // and we reply with a replacement div for this section only
                 if (g.eventname=="sortevent" || g.eventname=="dropevent")
                 {
                     string sPost = g.guid;
@@ -81,8 +83,9 @@ namespace BiblePayPool2018
                         string sSection = Sys.ExtractXML(sPost, "[DROPPABLE]", "[/DROPPABLE]");
                         string sLastCoord = "";
                         string sCurrCoord = "";
-                        string sql = "Select * FROM SECTION WHERE Name='" + sSection + "' and deleted=0";
-                        DataTable dt2 = Sys._data.GetDataTable(sql);
+                        string sql = "Select * FROM SECTION WHERE Name='" + clsStaticHelper.PurifySQL(sSection,100)
+                            + "' and deleted=0";
+                        DataTable dt2 = Sys._data.GetDataTable2(sql);
                         string sSectionGuid = dt2.Rows[0]["id"].ToString();
                         string sCurrFields = dt2.Rows[0]["Fields"].ToString();
                         string sData = Sys.ExtractXML(sPost, "[DATA]", "[/DATA]");
@@ -149,8 +152,9 @@ namespace BiblePayPool2018
                         if (!bFail)
                         {
                             sCols = sCols.Substring(0, sCols.Length - 1);
-                            string sSql = "Update Section set Fields='" + sCols + "' where id = '" + sSectionGuid + "'";
-                            Sys._data.Exec(sSql);
+                            string sSql = "Update Section set Fields='" + clsStaticHelper.PurifySQL(sCols,1000)
+                                + "' where id = '" + clsStaticHelper.GuidOnly(sSectionGuid) + "'";
+                            Sys._data.Exec2(sSql);
                         }
                     }
                     else if (sPost.Contains("[SORTABLE]"))
@@ -259,6 +263,8 @@ namespace BiblePayPool2018
                     }
                     try
                     {
+                        bool bDAHF = (HttpContext.Current.Request.Url.ToString().ToUpper().Contains("DAHF"));
+
                         //Store the event information in Sys, so the receiver can access it (before invoking):
                         if (Sys.Organization.ToString() == "00000000-0000-0000-0000-000000000000" && g.classname != "BiblePayPool2018.Login")
                         {
@@ -267,13 +273,20 @@ namespace BiblePayPool2018
                                 // instantiate the user based on the debug user guid.
                                 Login l = new Login(Sys);
                             }
-                            if (HttpContext.Current.Request.Url.ToString().ToUpper().Contains("ACCOUNTABILITY"))
+                            bool bACC= (HttpContext.Current.Request.Url.ToString().ToUpper().Contains("ACCOUNTABILITY"));
+                            if (bACC)
                             {
                                 Login l = new Login(Sys);
+                                // Harness point 09252018
                                 bool bAuth = l.VerifyUser("guest", "guest", ref Sys, false);
                                 // Start at the expense View Page when coming in from the Wallet accountability button
                                 g.classname = "BiblePayPool2018.Home";
                                 g.methodname = "ExpenseList";
+                            }
+                            else if (bDAHF)
+                            {
+                                g.classname = "BiblePayPool2018.Home";
+                                g.methodname = "DAHFLinkList";
                             }
                             g.classname = "BiblePayPool2018.Login";
                             g.methodname = "LoginSection";
@@ -285,6 +298,12 @@ namespace BiblePayPool2018
                             g.classname = "BiblePayPool2018.Login";
                             g.methodname = "LoginSection";
                         }
+                        if (Sys.DAHF==0 && bDAHF)
+                        {
+                            //g.classname = "BiblePayPool2018.Login";
+                           // g.methodname = "LoginSection";
+                        }
+                        // RAISE EVENT INTO PROGRAM
 
                         type1 = Type.GetType(g.classname);
                         object myObject1 = Activator.CreateInstance(type1, Sys);

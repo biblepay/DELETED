@@ -63,7 +63,20 @@ namespace BiblePayPool2018
 		    }
 	    }
 
-	    public static string Des3EncryptData(string plaintext)
+        public static String SHA256(String sValue)
+        {
+            StringBuilder Sb = new StringBuilder();
+            using (SHA256 hash = SHA256Managed.Create())
+            {
+                Encoding enc = Encoding.UTF8;
+                Byte[] result = hash.ComputeHash(enc.GetBytes(sValue));
+                foreach (Byte b in result)
+                    Sb.Append(b.ToString("x2"));
+            }
+            return Sb.ToString();
+        }
+
+        public static string Des3EncryptDataRetired(string plaintext)
 	    {
 			    Merkle(MerkleRoot);
 			    byte[] plaintextBytes = System.Text.Encoding.Unicode.GetBytes(plaintext);
@@ -81,7 +94,7 @@ namespace BiblePayPool2018
                 return String.Empty;
 	    }
 
-	    public static string Des3DecryptData(string encryptedtext)
+	    public static string Des3DecryptDataRetired(string encryptedtext)
 	    {
 			   Merkle(MerkleRoot);
 	           byte[] encryptedBytes = Convert.FromBase64String(encryptedtext);

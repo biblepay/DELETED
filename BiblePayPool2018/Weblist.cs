@@ -14,13 +14,24 @@ namespace BiblePayPool2018
         public bool bShowRowHighlightedByUserName { get; set; }
         public bool bSupportCloaking { get; set; }
         public string URLDefaultValue { get; set; }
+        public int AlternatingRows { get; set; }
+        private int CurrentAltRow { get; set;  }
+        private double[] dGrandTotal = new double[30];
+
+
+        public string sGrandTotalColumn { get; set; }
+        public string AlternationColor { get; set; }
+        public string OptionalHeaderComments { get; set; }
         public Weblist(SystemObject s)
         {
             sys = s;
+            AlternatingRows = 1;
+            CurrentAltRow = 0;
         }
 
         public List<ContextMenuItem> listContextMenuItems = new List<ContextMenuItem>();
-            
+        // Lichtsucher Support: I created a topic in the Forum: http://forum.biblepay.org/index.php?topic=157.0
+        
         public struct ContextMenuItem
         {
             public string Name;
@@ -48,6 +59,8 @@ namespace BiblePayPool2018
         public WebReply GetWebList(string sql, string sTitle, string sSectionName, string CommentsRow, string SourceTable, object caller, bool bRemoveDiv)
         {
 
+            bool bMasked = false;
+
             string myClass = caller.GetType().ToString();
             StackTrace stackTrace = new StackTrace();           
             StackFrame[] stackFrames = stackTrace.GetFrames();  // get method calls (frames)
@@ -55,6 +68,7 @@ namespace BiblePayPool2018
             MethodInfo method = (MethodInfo)callingFrame.GetMethod();
             string sMyMethod = method.Name;
 
+            if (sGrandTotalColumn == null) sGrandTotalColumn = "";
             // CONTEXT MENU 
             AddContextMenuitem(".", "", ".");
 
@@ -101,11 +115,15 @@ namespace BiblePayPool2018
             string html = "";
 
             if (!bRemoveDiv) html += "<div id='" + sSectionName + "' name='" + sSectionName + "'>";
-        
-             html += "<table frame=box cellspacing=4 cellpadding=4 width=100% class=TFtable style='xmin-eight:1vh'>"
-                + "<tr><th colspan=20 cellpadding=0 cellspacing=0 class='ui-dialog-titlebar ui-corner-all ui-widget-header'>"
-                + "<span class='ui-dialog-title'>" + sTitle + "</span>" + sButtons + "</th></tr>";
+            string sFullTitle = sTitle;
+            if (OptionalHeaderComments != null) sFullTitle += " " + OptionalHeaderComments;
+            html += "<table frame=box cellspacing=4 cellpadding=4 width=100% xclass=TFtable style='xmin-eight:1vh'>"
+               + "<tr><th colspan=20 cellpadding=0 cellspacing=0 class='ui-dialog-titlebar ui-corner-all ui-widget-header'>"
+               + "<span class='ui-dialog-title'>" + sFullTitle + "</span>" + sButtons + "</th></tr>";
             // Custom Context Sensitive menu and event, and Dispatch Function
+
+
+            // Instead of tfTable, 	background: grey;  alternate with this:
 
             if (Expanded)
             {
@@ -123,7 +141,7 @@ namespace BiblePayPool2018
                     return wr5;
                 }
                 // Column Names
-                string sHeader = "<TR>";
+                string sHeader = "<TR class='Head1'>";
                 for (int c = 0; c < dt.Cols; c++)
                 {
                     string sCN = dt.ColumnNames[c];
@@ -138,16 +156,17 @@ namespace BiblePayPool2018
                     {
                         bCommentsColumn = true;
                     }
+                    bMasked = false;
                     if (bCommentsColumn)
                     {
-                        sHeader += "</TR><TR>";
-                        sColspan = "colspan='" + dt.Cols.ToString() + "'";
-                        sCaption = "";
-
+                        //sHeader += "</TR><TR>";
+                        //sColspan = "colspan='" + dt.Cols.ToString() + "'";
+                        //sCaption = "";
+                        bMasked = true;
                     }
                     // Mask column if its a primary key guid
-                    bool bMasked = false;
-                    if (sCaption.ToUpper() == "ID" || sCaption.ToUpper() == "CLOAK" || sCaption.ToUpper() == "BATCHID")
+                    
+                    if (sCaption.ToUpper() == "ID" || sCaption.ToUpper() == "CLOAK" || sCaption.ToUpper() == "BATCHID" || sCaption.ToUpper() == "ORIGINALURL")
                     {
                         bMasked = true;
                     }
@@ -184,12 +203,48 @@ namespace BiblePayPool2018
                     if (bSupportCloaking)
                     {
                         string sValue =( dt.Value(y, "Cloak") ?? "").ToString();
-                        if (sValue == "1") bRowCloaked = true;
+                        if (clsStaticHelper.GetDouble(sValue) == 1) bRowCloaked = true;
 
                     }
                     string sSpecialCSS = bRowHighlighted && bShowRowHighlightedByUserName ? "Activated" : "";
+                    
+                    if (this.CurrentAltRow > this.AlternatingRows)
+                    {
+                        this.CurrentAltRow = 0;
+                    }
+                    string sAltCSS = "";
+                    if ((this.AlternatingRows == 1 && this.CurrentAltRow == 0  ) || (this.AlternatingRows == 3 && this.CurrentAltRow < 2))
+                    {
+                        sAltCSS = "Alternated";
+                    }
+                    else
+                    {
+                        sAltCSS = AlternationColor;
+                    }
+                    this.CurrentAltRow++;
+
+                    string sComments = "";
+                    for (int xx = 0; xx < dt.Cols; xx++)
+                    {
+                        string sCaption = dt.ColumnNames[xx];
+                        string sValue = dt.Value(y, xx).ToString();
+
+                        if (sCaption.ToUpper() == CommentsRow.ToUpper())
+                        {
+                            int iColCt = dt.Cols - 2;
+
+                            string sColspan = "colspan='" + iColCt.ToString()  + "'";
+                            sComments = "<TR class='" + sContextMenuCssClass + " " + sAltCSS + "'  >";
+                            sComments += "<TD class='ui-dialog-title' style='float:none;border-top:solid 1px;color:gray' " + sColspan + ">" + sValue + "</TD></TR>";
+                            html += sComments;
+                        }
+
+                    }
+
+                    int iOrdinal = 0;
+
                     // Add the context sensitive right click menu here:
-                    string sRow = "<TR usgdid='" + sID + "'  class='" + sContextMenuCssClass + " " + sSpecialCSS
+                    string sRow = "<TR usgdid='" + sID + "'  class='" + sContextMenuCssClass + " " + sSpecialCSS + " " + sAltCSS
                              + "'   onclick=\"$(this).addClass('Activated').siblings().removeClass('Activated');" + sOnRowClick + "\">";
 
                     for (int x = 0; x < dt.Cols; x++)
@@ -197,7 +252,6 @@ namespace BiblePayPool2018
                         string sValue = dt.Value(y, x).ToString();
                         string sCaption = dt.ColumnNames[x];
                         string sColspan = string.Empty;
-                        bool bCommentsColumn = false;
                         if (sCaption.ToUpper() == "USERNAME" || sCaption.ToUpper()=="MINERNAME")
                         {
                             if (bRowCloaked) sValue = "Anonymous";
@@ -206,23 +260,18 @@ namespace BiblePayPool2018
                         {
                             if (bRowCloaked) sValue = "Anonymous";
                         }
-                        if (sCaption.ToUpper() == CommentsRow.ToUpper())
-                        {
-                            bCommentsColumn = true;
-                            sColspan = "colspan='" + dt.Cols.ToString() + "'";
-                        }
-                        if (bCommentsColumn)
-                        {
-                            sRow += "</TR><TR class='" + sContextMenuCssClass + "'>";
-                        }
                         // Mask column if its a guid
-                        bool bMasked = false;
-                        if (sCaption.ToUpper() == "ID" || sCaption.ToUpper() == "TICKETID" || sCaption.ToUpper() == "TICKET GUID" || sCaption.ToUpper() == "BATCHID" || sCaption.ToUpper()=="CLOAK")
+                        bMasked = false;
+                        if (sCaption.ToUpper() == "ID" || sCaption.ToUpper() == "TICKETID" || sCaption.ToUpper() == "TICKET GUID" || sCaption.ToUpper() == "BATCHID" || sCaption.ToUpper()=="CLOAK" || sCaption.ToUpper() == "ORIGINALURL")
                         {
                             bMasked = true;
                         }
+                        if (sCaption.ToUpper() == CommentsRow.ToUpper()) bMasked = true;
+
+
                         if (!bMasked)
                         {
+                            iOrdinal++;
                             if (URLDefaultValue == null) URLDefaultValue = "View";
 
                             if (SourceTable == "Proposal" && sCaption.ToUpper() == "NAME")
@@ -238,7 +287,15 @@ namespace BiblePayPool2018
                                 sValue = "<a style='text-decoration: underline; cursor: pointer;' onclick=\"" + js + "\" xhref=" + URLDefaultValue + ">" + sDisplayValue + "</a>";
 
                             }
-                            else   if (sCaption.ToUpper()=="URL")
+                            else if ((SourceTable == "DAHFLinks" ) && sCaption.ToUpper() == "URL")
+                            {
+                                string js = "var win = window.open('" + sValue + "', '_blank'); win.focus();";
+                                string sDisplayValue = dt.Value((int)y, "originalurl").ToString();
+                                sValue = "<a style='text-decoration: underline; cursor: pointer;' onclick=\"" + js + "\" xhref=" + URLDefaultValue + ">" + sDisplayValue + "</a>";
+
+                            }
+
+                            else if (sCaption.ToUpper()=="URL")
                             {
                                 string sGuid = dt.Value((int)y,"id").ToString();
                                     string s1 = "<div id='div" + sGuid
@@ -251,12 +308,17 @@ namespace BiblePayPool2018
                                 sValue = s1;
                             }
 
+                            if (sGrandTotalColumn.ToUpper().Contains(sCaption.ToUpper()))
+                            {
+                                dGrandTotal[iOrdinal] += clsStaticHelper.GetDouble(dt.Value(y, x));
+
+                            }
                             if (sCaption.ToUpper() == "NEEDWRITTEN")
                             {
                                 string sVal = sValue.ToString() == "1" ? "TRUE" : "FALSE";
                                 sValue = sVal;
                             }
-                                sRow += "<TD class='ui-dialog-title' style='float:none' " + sColspan + ">" + sValue;
+                            sRow += "<TD class='ui-dialog-title' style='float:none' " + sColspan + ">" + sValue;
                             // Add buttons to view the row
                             if (x == dt.Cols - 1)
                             {
@@ -275,14 +337,49 @@ namespace BiblePayPool2018
                                 {
                                     sRow += sButtons3;
                                 }
-                                
-
-
+                        
                             }
                             sRow += "</TD>";
                         }
                     }
 
+                    sRow += "</TR>";
+                    html += sRow;
+                }
+
+
+               
+                // If grand total then
+                if (sGrandTotalColumn != "")
+                {
+                    string sRow = "<TR>";
+                    int iColOrdinal = 0;
+                    for (int x = 0; x < dt.Cols; x++)
+                    {
+                        
+                        string sCaption = dt.ColumnNames[x];
+                        string sColspan = string.Empty;
+                        string sValue = "&nbsp;";
+                        bMasked = false;
+
+                        if (sCaption.ToUpper() == "ID" || sCaption.ToUpper() == "CLOAK" || sCaption.ToUpper() == "BATCHID")
+                        {
+                            bMasked = true;
+                        }
+                        
+                        if (!bMasked)
+                        {
+                            iColOrdinal++;
+
+                            if (iColOrdinal == 1) sValue = "Grand Total:";
+                            if (sGrandTotalColumn.ToUpper().Contains(sCaption.ToUpper()))
+                            {
+                                sValue = dGrandTotal[iColOrdinal].ToString();
+                            }
+                            sRow += "<TD>" + sValue + "</TD>";
+                        }
+
+                    }
                     sRow += "</TR>";
                     html += sRow;
                 }
