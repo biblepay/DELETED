@@ -1284,7 +1284,7 @@ namespace BiblePayPool2018
             sBody = sBody.Replace("”", "`");
             sBody = sBody.Replace("--", " - ");
 
-            string sql = "Update Letters set body='" +  PurifySQLLong(sBody,3999)
+            string sql = "Update Letters set body='" +  PurifySQL(sBody,3999)
                                 + "',name='" +  PurifySQL(sTo,100)
                                 + "',userid='"                +  GuidOnly(Sys.UserGuid)
                                 + "',username='"              +  PurifySQL(Sys.Username,100)
