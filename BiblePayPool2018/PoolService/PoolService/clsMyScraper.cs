@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using Microsoft.VisualBasic;
 using System.Data;
 using System.Drawing;
+using Bitnet.Client;
+using static USGDFramework.Shared;
+
 
 namespace PoolService
 {
@@ -15,7 +18,6 @@ namespace PoolService
         {
             string[] vRows =data.Split(new string[] { delimiter }, StringSplitOptions.None);
             return vRows;
-
         }
 
         public static int UBound(string[] data)
@@ -51,7 +53,7 @@ namespace PoolService
                 // Glean the individual data
                 if (vCols.Length > 6)
                 {
-                    string hostid = clsStaticHelper.ExtractXML(vCols[1], "hostid=", ">").ToString();
+                    string hostid = USGDFramework.Shared.ExtractXML(vCols[1], "hostid=", ">").ToString();
                 }
             }
         }
@@ -77,10 +79,9 @@ namespace PoolService
                     if (vCols.Length >6)
                     {
                         string sStartTime = vCols[3].Trim();
-                        string wuId = clsStaticHelper.ExtractXML(vCols[1], "resultid=", "\"").ToString();
+                        string wuId = ExtractXML(vCols[1], "resultid=", "\"").ToString();
                         string sStatus = vCols[5].Trim();
                     }
-
                 }
             }
         }
@@ -116,6 +117,39 @@ namespace PoolService
             TextToFile(data, font, System.Drawing.Color.Maroon, System.Drawing.Color.Transparent, sTarget);
         }
 
+        public static void InductContacts()
+        {
+            object[] oParams = new object[2];
+            oParams[0] = "bolist";
+            oParams[1] = "contact";
+            BitnetClient bc = GetBitNet("main");
+
+            dynamic oOut = bc.InvokeMethod("exec", oParams);
+
+            var oResult = oOut["result"];
+            foreach (var oIT in oResult)
+            {
+                string sReceivingAddress = (oIT.Value["receiving_address"] ?? "").ToString();
+                if (sReceivingAddress.Length > 10)
+                {
+                    string sName = oIT.Value["contact_name"].ToString();
+                    string sCompany = oIT.Value["company_name"].ToString();
+                    string sURL = oIT.Value["url"].ToString();
+                    string sLong = oIT.Value["longitude"].ToString();
+                    string sLatitude = oIT.Value["latitude"].ToString();
+                    string sType = oIT.Value["contact_type"].ToString();
+                    string sql = "Delete from ObjectContact where receivingaddress='" + sReceivingAddress + "'";
+                    mPD.Exec2(sql);
+                    sql = "insert into objectcontact (id, name,company,url,longitude,latitude,ContactType,receivingaddress,added) values (newid(), '" + sName + "','" + sCompany + "','"
+                        + sURL + "','" + sLong + "','" + sLatitude + "','" + sType + "','" + sReceivingAddress + "',getdate())";
+                    mPD.Exec2(sql);
+                }
+
+
+            }
+        }
+
+
         public static void InductSuperblockData()
         {
             string sPath = "c:\\inetpub\\ftproot\\biblepay\\magnitude";
@@ -129,10 +163,10 @@ namespace PoolService
                 row = row.Replace("\n", "");
 
                 string[] vRowData = row.Split(new string[] { "," }, StringSplitOptions.None);
-                double dHeight = clsStaticHelper.GetDouble(vRowData[12]);
+                double dHeight = GetDouble(vRowData[12]);
                 if (dHeight == 0) return;
                 sql = "Delete from Superblocks where  height='" + dHeight.ToString() + "'";
-                clsStaticHelper.mPD.Exec2(sql);
+                mPD.Exec2(sql);
             }
             for (int i = 0; i < vRows.Length; i++)
             {
@@ -162,20 +196,20 @@ namespace PoolService
                         + taskweight + "','" + totalrac + "','" + unbanked + "','"
                         + utxoamount + "','" + avgrac + "','" + modifiedrac + "','" + height + "','" + RACWCG + "')";
 
-                    clsStaticHelper.mPD.Exec2(sql, false);
+                    mPD.Exec2(sql, false);
                     
                 }
             }
             //Finalize the data:
             string sql3 = " Update Superblocks set MachineCount = (Select MachineCount from RosettaMaster where rosettamaster.rosettaid = superblocks.rosettaid), TotalProcs = (Select TotalProcs from RosettaMaster where rosettamaster.rosettaid = superblocks.rosettaid) ,Name = (Select Username from RosettaMaster where rosettamaster.rosettaid = superblocks.rosettaid)   where Superblocks.Added > getdate() - 1";
-            clsStaticHelper.mPD.Exec2(sql3);
+            mPD.Exec2(sql3);
         }
 
         public static void InductRosettaLeaderboardData()
         {
             MyWebClient myHttp = new MyWebClient();
-            string sql = "Delete from tempTeam where 1=1";
-            clsStaticHelper.mPD.Exec2(sql, false);
+            string sql = "Delete from tempTeam where added < getdate()-7";
+            mPD.Exec2(sql, false);
             for (int x = 0; x <= 1240; x += 20)
             {
                 var sTeamURl = "https://boinc.bakerlab.org/rosetta/team_members.php?teamid=15044&offset=" + x.ToString()
@@ -184,10 +218,9 @@ namespace PoolService
                 ConvertPageToTable(sData, "tempTeam", "htmlrow,rosettaID,username,credit,rac,country", "rosettaID", "", "");
             }
 
-
             DataTable dt;
             sql = "Select * from TempTeam where 1=1 order by RosettaID";
-            dt =clsStaticHelper.mPD.GetDataTable2(sql);
+            dt = mPD.GetDataTable2(sql);
             for (int x = 0; x <= dt.Rows.Count - 1; x++)
             {
                 long rosettaID = (long)Convert.ToDouble(dt.Rows[x]["rosettaID"].ToString());
@@ -196,16 +229,16 @@ namespace PoolService
                 ConvertPageToTable(data1, "tempHosts", "computerID,Rank1,RAC,Credit,BoincVersion,CPU,GPU,OS,LastContact", "computerID", "rosettaID", rosettaID.ToString());
             }
             sql = "Delete from TempHosts where added < getdate()-7";
-            clsStaticHelper.mPD.Exec2(sql);
+            mPD.Exec2(sql);
 
             sql = "Select * from tempHosts where 1=1 order by ComputerID";
-            dt =clsStaticHelper.mPD.GetDataTable2(sql);
+            dt = mPD.GetDataTable2(sql);
             for (int x = 0; x <= dt.Rows.Count - 1; x++)
             {
                 long computerID = (long)Convert.ToDouble(dt.Rows[x]["computerID"].ToString());
                 sql = "select count(*) ct from TempHostDetails where computerid='" + computerID.ToString() + "' and added > getdate()-3";
 
-                double dExists = clsStaticHelper.mPD.GetScalarDouble2(sql, "ct", false);
+                double dExists = mPD.GetScalarDouble2(sql, "ct", false);
                 if (dExists == 0)
                 {
 
@@ -224,9 +257,9 @@ namespace PoolService
             }
             // Update the Unbanked Arm columns
             string sql2 = "Update TempHostDetails set arm = 1 where cpu like '%arm%' or cpu = ''";
-            clsStaticHelper.mPD.Exec2(sql2);
+            mPD.Exec2(sql2);
             string sql10 = "Exec updateRosetta 'main'";
-            clsStaticHelper.mPD.Exec2(sql10);
+            mPD.Exec2(sql10);
         }
 
         public static void ConvertPageToTable(string sData, string sTableName, string sColNames, string sPrimaryKey, string sOptForeignKey, string sOptForeignKeyValue)
@@ -245,18 +278,18 @@ namespace PoolService
                 sRow = Replace(sRow, " align=left", "");
                 sRow = Replace(sRow, "</td>", "");
                 sRow = Replace(sRow, "<a href=" + "\""  + "https://boinc.bakerlab.org/rosetta/show_user.php?", "");
-                string sDummy20 = clsStaticHelper.ExtractXML(sRow, "<a href=\"https://boinc.bakerlab.org/rosetta/view_profile.php?", ">").ToString();
+                string sDummy20 = ExtractXML(sRow, "<a href=\"https://boinc.bakerlab.org/rosetta/view_profile.php?", ">").ToString();
                 if (sDummy20.Length > 1) sDummy20 = "<a href=\"https://boinc.bakerlab.org/rosetta/view_profile.php?" + sDummy20 + ">";
                 sRow = Replace(sRow, sDummy20, "");
                 sRow = Replace(sRow, "million ops/sec", "");
-                string sDummy30 = clsStaticHelper.ExtractXML(sRow, "<img title=\"View the profile of", "\"").ToString();
+                string sDummy30 = ExtractXML(sRow, "<img title=\"View the profile of", "\"").ToString();
                 if (sDummy30.Length > 1) sDummy30 = "<img title=\"View the profile of" + sDummy30 + "\"";
                 sRow = Replace(sRow, sDummy30, "");
-                string sUserId = clsStaticHelper.ExtractXML(sRow, "userid=", "\"").ToString();
+                string sUserId = ExtractXML(sRow, "userid=", "\"").ToString();
                 sRow = Replace(sRow, "userid=" + sUserId, "<td>" + sUserId + "</td><td>");
-                string sDummy = clsStaticHelper.ExtractXML(sRow, "<img", ">").ToString();
+                string sDummy = ExtractXML(sRow, "<img", ">").ToString();
                 sRow = Replace(sRow, sDummy, "");
-                var sDummy2 = clsStaticHelper.ExtractXML(sRow, "</table", "</html").ToString();
+                var sDummy2 = ExtractXML(sRow, "</table", "</html").ToString();
                 sRow = Replace(sRow, sDummy2, "");
                 sRow = Replace(sRow, ">", "");
                 sRow = Replace(sRow, "</td>", "");
@@ -266,19 +299,19 @@ namespace PoolService
                 sRow = Replace(sRow, "</html", "");
                 sRow = Replace(sRow, "ID: ", "");
                 sRow = Replace(sRow, "<br", "");
-                string sDummy3 = clsStaticHelper.ExtractXML(sRow, "<a href=show_host_detail", ">").ToString();
+                string sDummy3 = ExtractXML(sRow, "<a href=show_host_detail", ">").ToString();
                 sRow = Replace(sRow, sDummy3, "");
-                string sDummy4 = clsStaticHelper.ExtractXML(sRow, "<a href=results.php", ">").ToString();
+                string sDummy4 = ExtractXML(sRow, "<a href=results.php", ">").ToString();
                 sRow = Replace(sRow, sDummy4, "");
-                string sDummy5 = clsStaticHelper.ExtractXML(sRow, "<a href=http://boincstats.com", "Free-DC").ToString();
+                string sDummy5 = ExtractXML(sRow, "<a href=http://boincstats.com", "Free-DC").ToString();
                 sRow = Replace(sRow, sDummy5, "");
                 sRow = Replace(sRow, "</small", "");
                 sRow = Replace(sRow, "<small", "");
                 sRow = Replace(sRow, "</table", "");
-                string sDummy6 = clsStaticHelper.ExtractXML(sRow, "<a href=show_host", "<a").ToString();
+                string sDummy6 = ExtractXML(sRow, "<a href=show_host", "<a").ToString();
                 sRow = Replace(sRow, sDummy6, "");
                 sRow = Replace(sRow, "href=http://boincstats.comFree-DC", "");
-                string sDummy7 =clsStaticHelper.ExtractXML(sRow, "<a href=show_host", "</nobr").ToString();
+                string sDummy7 =ExtractXML(sRow, "<a href=show_host", "</nobr").ToString();
                 sRow = Replace(sRow, sDummy7, "");
                 sRow = Replace(sRow, "<a href=show_host", "");
                 sRow = Replace(sRow, "</nobr", "");
@@ -329,12 +362,12 @@ namespace PoolService
                 sql = "Insert into " + sTableName + " (id,added," + sColNames + sOptCols + ") values (newid(),getdate()," + sValues + sOptValues + ")";
                 if (valuecount == colcount)
                 {
-                    string sql2 = "Delete from " + sTableName + " where " + sPrimaryKey + "=" + sPrimaryValue + "";
+                    string sqlD = "Delete from " + sTableName + " where " + sPrimaryKey + "=" + sPrimaryValue + "";
                     if ((sPrimaryValue != ""))
                     {
-                       clsStaticHelper.mPD.Exec2(sql2, false);
+                       mPD.Exec2(sqlD, false);
                     }
-                    clsStaticHelper.mPD.Exec2(sql);
+                    mPD.Exec2(sql);
                 }
             }
         }
@@ -361,11 +394,11 @@ namespace PoolService
                 sRow = Replace(sRow, "million ops/sec", "");
                 sRow = Replace(sRow, "</td>", "");
                 sRow = Replace(sRow, "<a href=" + "\"" + "https://boinc.bakerlab.org/rosetta/show_user.php?", "");
-                string sUserId = clsStaticHelper.ExtractXML(sRow, "userid=", "\"").ToString();
+                string sUserId = ExtractXML(sRow, "userid=", "\"").ToString();
                 sRow = Replace(sRow, "userid=" + sUserId, "<td>" + sUserId + "</td><td>");
-                var sDummy = clsStaticHelper.ExtractXML(sRow, "<img", ">").ToString();
+                var sDummy = ExtractXML(sRow, "<img", ">").ToString();
                 sRow = Replace(sRow, sDummy, "");
-                var sDummy2 = clsStaticHelper.ExtractXML(sRow, "</table", "</html").ToString();
+                var sDummy2 = ExtractXML(sRow, "</table", "</html").ToString();
                 sRow = Replace(sRow, sDummy2, "");
                 sRow = Replace(sRow, "</a", "");
                 sRow = Replace(sRow, "\"", "");
@@ -373,19 +406,19 @@ namespace PoolService
                 sRow = Replace(sRow, "</html", "");
                 sRow = Replace(sRow, "ID: ", "");
                 sRow = Replace(sRow, "<br", "");
-                string sDummy3 = clsStaticHelper.ExtractXML(sRow, "<a href=show_host_detail", ">").ToString();
+                string sDummy3 = ExtractXML(sRow, "<a href=show_host_detail", ">").ToString();
                 sRow = Replace(sRow, sDummy3, "");
-                string sDummy4 = clsStaticHelper.ExtractXML(sRow, "<a href=results.php", ">").ToString();
+                string sDummy4 = ExtractXML(sRow, "<a href=results.php", ">").ToString();
                 sRow = Replace(sRow, sDummy4, "");
-                string sDummy5 = clsStaticHelper.ExtractXML(sRow, "<a href=http://boincstats.com", "Free-DC").ToString();
+                string sDummy5 = ExtractXML(sRow, "<a href=http://boincstats.com", "Free-DC").ToString();
                 sRow = Replace(sRow, sDummy5, "");
                 sRow = Replace(sRow, "</small", "");
                 sRow = Replace(sRow, "<small", "");
                 sRow = Replace(sRow, "</table", "");
-                string sDummy6 = clsStaticHelper.ExtractXML(sRow, "<a href=show_host", "<a").ToString();
+                string sDummy6 = ExtractXML(sRow, "<a href=show_host", "<a").ToString();
                 sRow = Replace(sRow, sDummy6, "");
                 sRow = Replace(sRow, "href=http://boincstats.comFree-DC", "");
-                string sDummy7 = clsStaticHelper.ExtractXML(sRow, "<a href=show_host", "</nobr").ToString();
+                string sDummy7 = ExtractXML(sRow, "<a href=show_host", "</nobr").ToString();
                 sRow = Replace(sRow, sDummy7, "");
                 sRow = Replace(sRow, "<a href=show_host", "");
                 sRow = Replace(sRow, "</nobr", "");
@@ -397,9 +430,9 @@ namespace PoolService
                 sRow = Replace(sRow, "title=Top 5% in average credit valign=top height=24 src=img/pct_5.png", "");
                 sRow = Replace(sRow, "title=Top 1% in average credit valign=top height=24 src=img/pct_1.png", "");
                 long valuecount = 0;
-                string sDummy10 = clsStaticHelper.ExtractXML(sRow, "<td", ">").ToString();
+                string sDummy10 = ExtractXML(sRow, "<td", ">").ToString();
                 sRow = Replace(sRow, sDummy10, "");
-                string sDummy11 = clsStaticHelper.ExtractXML(sRow, "<td", "<").ToString();
+                string sDummy11 = ExtractXML(sRow, "<td", "<").ToString();
                 sRow = Replace(sRow, sDummy11, "");
                 sRow = Replace(sRow, "<td", "");
                 sRow = Replace(sRow, ">", "");
@@ -438,10 +471,10 @@ namespace PoolService
 
             string sql2 = "Delete from " + sTableName + " where computerid = '" + sCPUID + "'";
             if ((sCPUID != ""))
-                clsStaticHelper.mPD.Exec2(sql2, false);
+                mPD.Exec2(sql2, false);
             try
             {
-                clsStaticHelper.mPD.ExecWithThrow2(sql, false, false);
+                mPD.ExecWithThrow2(sql, false, false);
 
             }
             catch (Exception ex)

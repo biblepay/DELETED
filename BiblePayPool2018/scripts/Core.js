@@ -1,11 +1,18 @@
-﻿
+
 document.addEventListener("keydown", keyDownTextField, false);
+//window.onbeforeunload = function () { return "Key disabled."; };
+$(window).on('beforeunload', function ()
+{
+    var x = formunload();
+    return x;
+});
+
 
 function keyDownTextField(e) {
     var keyCode = e.keyCode;
     if (keyCode == 13)
     {
-        // Reserved - Handle the Enter Key 
+        // Reserved - Handle the Enter Key
     }
     else if (e.ctrlKey && keyCode == 8)
     {
@@ -17,12 +24,21 @@ function keyDownTextField(e) {
 function FrameNav(sClass, sMethod, sGuid)
 {
     // Argument 2 (The Method) tells c# to handle this request by invoking the named method
-    post("1", "formload", "formevent", "post=FrameNav", sClass, sMethod, postcomplete, sGuid);
+    post("1", "formload", "formevent", "post=FrameNav", sClass, sMethod, postcomplete, sGuid, '');
 }
 
 function formload()
 {
-        post("1", "formload", "formevent", "post=formload", "BiblePayPool2018.Home", 'FormLoad', postcomplete,"");
+        post("1", "formload", "formevent", "post=formload", "BiblePayPool2018.Home", 'FormLoad', postcomplete,"", '');
+}
+
+function formunload()
+{
+
+    //This detects the browser back button and the f5 button
+    //return confirm('Are you sure you would like to refresh the browser (Not recommended)?');
+    //"1", "formload", "formevent", "post=formload", "BiblePayPool2018.Home", 'FormLoad', postcomplete,"");
+    //return false;
 }
 
 String.prototype.replaceAll = function (search, replacement)
@@ -42,7 +58,7 @@ function Replace2(source, find, replacement)
         return source;
 }
 
-function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
+function postdiv(o, sEventName, sClassName, sMethodName, sGUID, sData2)
 {
         var sOut = "";
         var oDiv = $(o).closest("div");
@@ -61,7 +77,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
             {
                 sName = "";
                 sControlValue = "";
-               
+
                 if ($(this)[0].checked)
                 {
                     sControlValue = $(this)[0].value;
@@ -80,11 +96,10 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
         $(o).closest("div").find("textarea").each(function (index)
         {
             var sUSGDID = "";
-            var sUSGDValue = ""; 
+            var sUSGDValue = "";
             var s = $(this)[0].name + "[COL]" + $(this)[0].value + "[COL]" + sUSGDID + "[COL]" + sUSGDValue + "[COL][ROW]";
             sOut += s;
         });
-
 
         // For each select in the div, send as a row
         $(o).closest("div").find("select").each(function (index)
@@ -117,9 +132,9 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
         {
             sDivName = "1"; //this happens when the client hits the breadcrumb, and the current divname is empty
         }
-        post(sDivName,"postdiv",sEventName,sOut,sClassName,sMethodName, postcomplete,sGUID);
+        post(sDivName,"postdiv",sEventName,sOut,sClassName,sMethodName, postcomplete,sGUID,sData2);
     }
-    
+
     function postcomplete(sData)
     {
         // Extract the strongly typed c# object
@@ -130,7 +145,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
             {
                 var myData = myDataArray[i];
                 if (myData.action == "refresh")
-                { 
+                {
                     // Determine Which div we will refresh, and only update that section
                     var body = myData.body;
                     var js = myData.javascript;
@@ -139,31 +154,43 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
                     if (myData.ClearScreen)
                     {
                         // Erase the content of all divs on this page in the ExpandableSections area:
-                        $('[name=1]')[0].innerHTML = "";
+                        $('[id=1]')[0].innerHTML = "";
                     }
                     // BREADCRUMB
                     if (breadcrumb && breadcrumb.length > 0)
                     {
-                        $('[name=' + myData.breadcrumbdiv + ']')[0].innerHTML = breadcrumb;
+                        $('[id=' + myData.breadcrumbdiv + ']')[0].innerHTML = breadcrumb;
                     }
 
                     if (myData.ApplicationMessage && myData.ApplicationMessage.length > 0)
                     {
-                        $('[name=ApplicationMessage]')[0].innerHTML = myData.ApplicationMessage;
+                        $('[id=ApplicationMessage]')[0].innerHTML = myData.ApplicationMessage;
                     }
                     // END OF BREADCRUMB
 
                     // First, if section does not exist on the page:
-                    var oBody = $('[name=\"' + myData.divname + '"]');
+                    var oBody = $('[id=\"' + myData.divname + '"]');
                     if (body.length > 0) {
                         if (oBody.length == 0)
                         {
-                            $('[name=1]').append(body);
+                            $('[id=1]').append(body);
                         }
                         else {
-                            if (oBody.length > 0)
+                            if (oBody.length > 0 && false)
                             {
-                                if (doappend == "true") {
+                                if (doappend == "true")
+                                {
+                                    try {
+
+                                        $(this).dialog('destroy').remove();
+                                        //$('[id=hdialogclass]').remove();
+                                    }
+                                    catch (e) {
+
+                                    }
+                                    oBody[length-1].remove();
+
+
                                     var hidden1 = "<input type='hidden' id='hdialogclass' name='hdialogclass' value='" + myData.divname + "'>";
                                     var addto = body + hidden1;
                                     oBody.append(addto);
@@ -188,7 +215,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
                     var c = "ack";
                 }
              }
-        }   
+        }
 
     }
 
@@ -232,7 +259,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
             }
             catch(e)
             {
-
+                alert('upload failed');
             }
             // Del the iframe...
         }
@@ -252,7 +279,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
         var oDiv = document.getElementById(div_id);
         var oSection = document.getElementById(sSectionName);
         oDiv.innerHTML = "Uploading...";
-        postdiv(oSection, 'buttonevent',sReturnClass,sReturnMethod,'');
+        postdiv(oSection, 'buttonevent',sReturnClass,sReturnMethod,'','');
     }
 
 
@@ -289,7 +316,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
             } else
             {
                 txt += "The files property is not supported by your browser!";
-                txt += "<br>The path of the selected file: " + x.value; // If the browser does not support the files property, it will return the path of the selected file instead. 
+                txt += "<br>The path of the selected file: " + x.value; // If the browser does not support the files property, it will return the path of the selected file instead.
             }
         }
         if (txt.length > 0)
@@ -297,9 +324,13 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
             document.getElementById("DivUploadControl").innerHTML = txt;
             fileUpload(oForm, sURL, sDivName, sReturnClass, sReturnMethod, sSectionName);
         }
+        else
+        {
+            alert('list of files empty');
+        }
     }
 
-    function post(sDivName,sAction,sEventName,sData,sClassName,sMethodName,callbackfunc,sGUID)
+    function post(sDivName,sAction,sEventName,sData,sClassName,sMethodName,callbackfunc,sGUID,sData2)
     {
         // Convert to JSON
         var o = { "name": "", "action": "", "body": "", "classname": "", "eventname" : "", "methodname" : "" };
@@ -310,6 +341,7 @@ function postdiv(o, sEventName, sClassName, sMethodName, sGUID)
         o.methodname = sMethodName;
         o.eventname = sEventName;
         o.guid = sGUID;
+        o.data2 = sData2;
         o.orderby = '';
         var myJson = "post=" + JSON.stringify(o);
         var sData = "";

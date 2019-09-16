@@ -17,6 +17,7 @@ namespace BiblePayPool2018
         public int AlternatingRows { get; set; }
         private int CurrentAltRow { get; set;  }
         private double[] dGrandTotal = new double[30];
+        public string ExtraColumnPost = "";
 
 
         public string sGrandTotalColumn { get; set; }
@@ -83,8 +84,10 @@ namespace BiblePayPool2018
             string sContextMenuCssClass = "context-menu-" + CleanName(sSectionName);
       
             if (htmlCMI.Length > 0) htmlCMI = htmlCMI.Substring(0, htmlCMI.Length - 1);
-            string sContextEvent = " onclick=\"var sUSGDID = $(this)[0].getAttribute('usgdid');postdiv(this,'contextmenu','" + myClass + "','" + sMyMethod + "_ContextMenu_'+key,USGDID);\"";
-             sContextEvent = " var sUSGDID = $(this)[0].getAttribute('usgdid');postdiv(this,'contextmenu','" + myClass + "','" + sMyMethod + "_ContextMenu_'+key,sUSGDID);";
+            string sContextEvent = " onclick=\"var sUSGDID = $(this)[0].getAttribute('usgdid');postdiv(this,'contextmenu','" 
+                + myClass + "','" + sMyMethod + "_ContextMenu_'+key,USGDID,'');\"";
+             sContextEvent = " var sUSGDID = $(this)[0].getAttribute('usgdid');postdiv(this,'contextmenu','" + myClass 
+                + "','" + sMyMethod + "_ContextMenu_'+key,sUSGDID,'');";
 
 
             string sContextMenu = "  $(function() {   $.contextMenu({     selector: '." + sContextMenuCssClass + "',        callback: function(key, options) { " +
@@ -96,15 +99,15 @@ namespace BiblePayPool2018
             string sExpandedClass = Expanded ? "icon-minus" : "icon-plus";
             sExpandedClass = Expanded ? "icon-chevron-up" : "icon-chevron-down";
 
-            string sAddNewButton = "<span onclick=postdiv(this,'addnew','" + myClass + "','" + sMyMethod + "_AddNew',''); style='float:right;' class='"
+            string sAddNewButton = "<span onclick=postdiv(this,'addnew','" + myClass + "','" + sMyMethod + "_AddNew','',''); style='float:right;' class='"
                 + "icon-plus" + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
             
-            string sExpandButton = "<span onclick=postdiv(this,'expand','" + myClass + "','" + sMyMethod + "',''); style='float:right;' class='"
+            string sExpandButton = "<span onclick=postdiv(this,'expand','" + myClass + "','" + sMyMethod + "','',''); style='float:right;' class='"
                 + sExpandedClass + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
 
 
             // Button for Exporting the Row (CSV printer icon)
-            string sExportButton = "<span onclick=postdiv(this,'export','" + myClass + "','" + sMyMethod + "_Export',''); style='float:right; cursor:pointer;' class='"
+            string sExportButton = "<span onclick=postdiv(this,'export','" + myClass + "','" + sMyMethod + "_Export','',''); style='float:right; cursor:pointer;' class='"
                 + "icon-print" + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
             string sButtons = "";
             if (bShowRowExport)
@@ -114,10 +117,10 @@ namespace BiblePayPool2018
             sButtons += sExpandButton + sAddNewButton; //These buttons end up going in reverse order.
             string html = "";
 
-            if (!bRemoveDiv) html += "<div id='" + sSectionName + "' name='" + sSectionName + "'>";
+            if (!bRemoveDiv) html += "<div id='" + sSectionName + "' name='" + sSectionName + "' class='divBodyScroll'>";
             string sFullTitle = sTitle;
             if (OptionalHeaderComments != null) sFullTitle += " " + OptionalHeaderComments;
-            html += "<table frame=box cellspacing=4 cellpadding=4 width=100% xclass=TFtable style='xmin-eight:1vh'>"
+            html += "<table frame=box cellspacing=4 cellpadding=4 width='100%' class='tableBodyScroll'>"
                + "<tr><th colspan=20 cellpadding=0 cellspacing=0 class='ui-dialog-titlebar ui-corner-all ui-widget-header'>"
                + "<span class='ui-dialog-title'>" + sFullTitle + "</span>" + sButtons + "</th></tr>";
             // Custom Context Sensitive menu and event, and Dispatch Function
@@ -134,14 +137,16 @@ namespace BiblePayPool2018
                 }
                 catch (Exception ex)
                 {
-                    string sErr = html + "<tr><td>" + ex.Message + "</td></tr></table></div>";
+                    string sErr = html + "<tr><td>" + ex.Message + "</td></tr></table></div></div>";
 
                     WebReply wr5 = new WebReply();
                     wr5.AddWebReply(sErr, "", "Error Dialog",false);
                     return wr5;
                 }
                 // Column Names
-                string sHeader = "<TR class='Head1'>";
+                // freeze header
+ 
+                string sHeader = "<tr>";
                 for (int c = 0; c < dt.Cols; c++)
                 {
                     string sCN = dt.ColumnNames[c];
@@ -159,9 +164,6 @@ namespace BiblePayPool2018
                     bMasked = false;
                     if (bCommentsColumn)
                     {
-                        //sHeader += "</TR><TR>";
-                        //sColspan = "colspan='" + dt.Cols.ToString() + "'";
-                        //sCaption = "";
                         bMasked = true;
                     }
                     // Mask column if its a primary key guid
@@ -174,19 +176,31 @@ namespace BiblePayPool2018
                     {
                         // Icon OrderBy
                         string sOrderByClass = sys.GetObjectValue(sSectionName,"OrderByClass" + sCN) == "down" ? "icon-chevron-up" : "icon-chevron-down";
-                        string sButtons2 = "<span onclick=postdiv(this,'OrderByClick','" + myClass + "','" + sMyMethod + "_OrderByClick','" + sCN + "'); style='float:right;' class='"
+                        string sButtons2 = "<span onclick=postdiv(this,'OrderByClick','" + myClass + "','" + sMyMethod 
+                            + "_OrderByClick','" + sCN + "',''); style='float:right;' class='"
                                 + sOrderByClass + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
-                        sHeader += "<th align=left " + sColspan + "class='ui-dialog-titlebar' style='border-bottom: grey thin solid'>" + sCaption + sButtons2 + "</th>";
+                        sHeader += "<th align=left " + sColspan + "class='ui-dialog-titlebar' style='border-bottom: grey thin solid'>" 
+                            + sCaption + sButtons2 + "</th>";
                     }
                 }
-                sHeader += "</TR>";
+                sHeader += "</tr>";
+                //string sNewTable = "</table><div class=scrolly><table cellpadding=4 cellspacing=4 width='100%' >";
                 html += sHeader;
+               // string sNewHeader = sHeader.Replace("Head1", "Head1Invisible");
+
+                //html += sNewTable;
                 // RENDER VALUES
                 for (int y = 0; y < dt.Rows; y++)
                 {
 
                     string sID = dt.GuidValue(y, "Id").ToString();
-                    string sOnRowClick = "postdiv(this,'rowclick','" + myClass + "','" + sMyMethod + "_RowClick','" + sID + "');";
+                    string sGuid2 = "";
+                    if (this.ExtraColumnPost != "")
+                    {
+
+                        sGuid2 = dt.Value(y,ExtraColumnPost).ToString();
+                    }
+                    string sOnRowClick = "postdiv(this,'rowclick','" + myClass + "','" + sMyMethod + "_RowClick','" + sID + "','" + sGuid2 + "');";
                     // This is where we render each weblist ROW of data
                     bool bRowHighlighted = false;
                     bool bRowCloaked = false;
@@ -203,7 +217,7 @@ namespace BiblePayPool2018
                     if (bSupportCloaking)
                     {
                         string sValue =( dt.Value(y, "Cloak") ?? "").ToString();
-                        if (clsStaticHelper.GetDouble(sValue) == 1) bRowCloaked = true;
+                        if (USGDFramework.Shared.GetDouble(sValue) == 1) bRowCloaked = true;
 
                     }
                     string sSpecialCSS = bRowHighlighted && bShowRowHighlightedByUserName ? "Activated" : "";
@@ -235,7 +249,7 @@ namespace BiblePayPool2018
 
                             string sColspan = "colspan='" + iColCt.ToString()  + "'";
                             sComments = "<TR class='" + sContextMenuCssClass + " " + sAltCSS + "'  >";
-                            sComments += "<TD class='ui-dialog-title' style='float:none;border-top:solid 1px;color:gray' " + sColspan + ">" + sValue + "</TD></TR>";
+                            sComments += "<TD class='ui-dialog-title' style='float:none;border-top:solid 1px;xcolor:gray' " + sColspan + ">" + sValue + "</TD></TR>";
                             html += sComments;
                         }
 
@@ -287,14 +301,6 @@ namespace BiblePayPool2018
                                 sValue = "<a style='text-decoration: underline; cursor: pointer;' onclick=\"" + js + "\" xhref=" + URLDefaultValue + ">" + sDisplayValue + "</a>";
 
                             }
-                            else if ((SourceTable == "DAHFLinks" ) && sCaption.ToUpper() == "URL")
-                            {
-                                string js = "var win = window.open('" + sValue + "', '_blank'); win.focus();";
-                                string sDisplayValue = dt.Value((int)y, "originalurl").ToString();
-                                sValue = "<a style='text-decoration: underline; cursor: pointer;' onclick=\"" + js + "\" xhref=" + URLDefaultValue + ">" + sDisplayValue + "</a>";
-
-                            }
-
                             else if (sCaption.ToUpper()=="URL")
                             {
                                 string sGuid = dt.Value((int)y,"id").ToString();
@@ -310,7 +316,7 @@ namespace BiblePayPool2018
 
                             if (sGrandTotalColumn.ToUpper().Contains(sCaption.ToUpper()))
                             {
-                                dGrandTotal[iOrdinal] += clsStaticHelper.GetDouble(dt.Value(y, x));
+                                dGrandTotal[iOrdinal] += USGDFramework.Shared.GetDouble(dt.Value(y, x));
 
                             }
                             if (sCaption.ToUpper() == "NEEDWRITTEN")
@@ -323,15 +329,16 @@ namespace BiblePayPool2018
                             if (x == dt.Cols - 1)
                             {
                                 //Button for Viewing the row
-                                string sButtons2 = "<span align=right onclick=postdiv(this,'handview','" + myClass + "','" + sMyMethod + "','" + sID + "'); style='float:right;' class='"
+                                string sButtons2 = "<span align=right onclick=postdiv(this,'rowclick','" + myClass + "','" + sMyMethod + "','" 
+                                    + sID + "','" + sGuid2 + "'); style='float:right;' class='"
                                      + "icon-hand-up" + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
                                 if (bShowRowSelect)
                                 {
                                     sRow += sButtons2;
                                 }
-                                // Button for Deleting the Row (Trash Icon)
-                                string sButtons3 = "<span align=right onclick=postdiv(this,'handview','" + myClass + "','" + sMyMethod 
-                                    + "_Delete_Click','" + sID + "'); style='float:right;' class='"
+                                // Button for Deleting the Row (Trash Icon) 6-14-2019
+                                string sButtons3 = "<span align='right' onclick=postdiv(this,'rowclick','" + myClass + "','" + sMyMethod 
+                                    + "_Remove_Click','" + sID + "','" + sGuid2 + "'); style='cursor:pointer;float:right;' class='"
                                     + "icon-trash" + "'>&nbsp;&nbsp;&nbsp;&nbsp;</span>";
                                 if (bShowRowTrash)
                                 {

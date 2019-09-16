@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -17,7 +17,8 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\..\..\..\PoolBinaries\Debug\</OutputPath>
+    <IntermediateOutputPath>..\..\..\..\PoolBinaries\DebugObj\</IntermediateOutputPath> 
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -26,15 +27,13 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\..\..\..\PoolBinaries\Release\</OutputPath>
+    <IntermediateOutputPath>..\..\..\..\PoolBinaries\ReleaseObj\</IntermediateOutputPath> 
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Bitnet.Client">
-      <HintPath>..\..\Dependencies\Bitnet.Client.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -93,9 +92,17 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\bitnet\Bitnet.Client\Bitnet.Client.csproj">
+      <Project>{90d3e431-02df-432f-9f09-ed6e934bacd2}</Project>
+      <Name>Bitnet.Client</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\USGDFramework\USGDFramework\USGDFramework.csproj">
       <Project>{09a0bbe1-5ea1-44cf-931a-f93d877736c6}</Project>
       <Name>USGDFramework</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\code\WalmartAPI\WalmartAPI\WalmartAPI\WalmartAPI.csproj">
+      <Project>{98cde812-8568-4314-9b34-605e86d4eff2}</Project>
+      <Name>WalmartAPI</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
