@@ -1,21 +1,22 @@
 
 :root{
 
-    --bgcolor: black; 
-    --rightgradient: white;    
-    --fontcolor: #ffccff;
-    --textcolor: white;
-    --gradientcolor: white;
-    --gradientcolor2: #ffddff;
-    --fontcolorheading: white;
+    --bgcolor: #8f143C; /*crimson*/
+    --rightgradient: #0f0000;    
+    --fontcolor: gold;
+    --textcolor: gold;
+    --gradientcolor: #0f1400;
+    --gradientcolor2: #3f1400;
+    --fontcolorheading: gold;
     /* css flyout menu */
-    --leftcolor: black;
+    --leftcolor: #ff143c;
     /* css flyout mid section */
-    /*121212       550000 */
-    --midcolor: #150000;
-    --leftbgcolor: #000000;   
-    --alternatedbackground: grey;
-    --nonalternatedbackground: #110000;
+    --midcolor: #0f0400; /*121212*/
+     --leftbgcolorold: #0a041c;
+     --leftbgcolor: #00041c;
+     
+    --alternatedbackground: #4f1400;
+    --nonalternatedbackground: #8f143c;
 }
 
  
@@ -30,45 +31,26 @@
     {
 		//xbackground: #001515;
 		background: #ffeeff;
-		background: grey;
+		background: var(--alternatedbackground);
     }
-    
-    
-    /* Chrome, Safari */
-    ::-webkit-scrollbar 
-    {
-    width: 12px;
-    height: 12px;
-    }
-    ::-webkit-scrollbar-track-piece  
-    {
-    background-color: #010101;
-    }
-    ::-webkit-scrollbar-thumb:vertical 
-    {
-    height: 15px;
-    background-color: #330110;
-    }
-
-
 
 .Alternated 
 {
     background: #ffefff;
-    background: grey !important;
+    background: var(--alternatedbackground) !important;
 }
 
 .NonAlternated
 {
     background: #ffffff;
-    background: #110000 !important;
+    background: var(--nonalternatedbackground) !important;
 }
 
 .Head1 
 {
     background: linear-gradient(to bottom, white 0%, lightgrey 49%, grey 82%, lightgrey 100%);
 
-    background: linear-gradient(to bottom, grey 0%, black 49%, black 82%, grey 100%);
+    background: linear-gradient(to bottom, var(--alternatedbackground) 0%, var(--bgcolor) 49%, var(--bgcolor) 82%, var(--alternatedbackground) 100%);
 }
 
  .Activated
@@ -85,8 +67,8 @@
    {
         list-style-type: none; margin: 0; padding: 0; xwidth: 60%; 
          border-color: gray;
-         border-color: grey !important;
-         border:1px outset grey !important;
+         border-color: var(--alternatedbackground) !important;
+         border:1px outset var(--alternatedbackground) !important;
          border-radius: 3px 2px 2px 3px;
 
          margin: 0 3px 3px 3px; padding: 0.4em; 
@@ -104,7 +86,7 @@
 .title2
 {
     background: linear-gradient(to right,  black 0%, grey 49%, black 82%, grey 100%);
-    background: linear-gradient(to right,  #000000 0%, black 49%, grey 82%, white 100%);
+    background: linear-gradient(to right,  var(--leftbgcolor) 0%, var(--bgcolor) 49%, var(--alternatedbackground) 82%, var(--rightgradient) 100%);
 }
 
 
@@ -112,7 +94,7 @@ h1, h2, h4, h5, h6
 {
     font-size: 1.5em;
     color: white;
-    color: #ffccff;
+    color: var(--fontcolor);
     font-variant: small-caps;
     text-transform: none;
     font-weight: 200;
@@ -124,7 +106,7 @@ h1, h2, h4, h5, h6
 h7
 {
     font-size: 1.3em;
-    color: white;
+    color: var(--fontcolorheading);
     font-variant: small-caps;
     text-transform: none;
     font-weight: 200;
@@ -250,39 +232,18 @@ h1
 #{background-image:url("/images/glyphicons-halflings-white.png")}
 #override JQUERY-UI Dialogs (because jquery dialogs are hardcoded with special colors)
 
-.ui-dialog-titlebar-close 
-{
-	color:yellow;
-	background: linear-gradient(black,#550000,black); 
-        
-}
-
-.ui-button
-{
-  background-color: black;
-  x-webkit-border-radius: 5px;
-  padding: 0px;
-  height:18px;
-  color: white;
-  /* Round button background gradient */
-  background: linear-gradient(black,#550000,black); 
-  border-color: grey !important;
-  border:1px outset grey !important;
-  border-radius: 3px 2px 2px 3px;
-  float:right;
-}
-
 .ui-widget.ui-widget-content 
 {
-   border: 1px solid #c5c5c5;
+	border: 1px solid #c5c5c5;
 }
 
 .ui-widget-content 
 {
 	border: 1px solid #dddddd;
 	background: linear-gradient(white,grey,black);
-        background: linear-gradient(black,#550000,black); 
+        background: linear-gradient(var(--gradientcolor),var(--bgcolor),var(--gradientcolor2)); 
         color: white;
+	color: var(--textcolor);
 }
 
 .ui-widget-content a 
@@ -292,25 +253,27 @@ h1
 .ui-widget-header {
 	border: 1px solid #dddddd;
 	background: linear-gradient(white,grey,black);
-	background: linear-gradient(white,grey,#ffddff); 
-	color: white;
+	background: linear-gradient(var(--gradientcolor),var(--alternatedbackground),var(--gradientcolor2)); 
+	color: var(--textcolor);
 	font-weight: bold;
 }
 .ui-widget-header a {
-	color: white;
+	color: var(--gradientcolor);
 }
 
-
+.ui-button.ui-corner-all.ui-widget.ui-button-icon-only.ui-dialog-titlebar-close {
+    display: none;
+}
 
 .roundbutton {
-  background-color: black;
+  background-color: var(--bgcolor);
   x-webkit-border-radius: 15px;
   padding: 5px;
-  color: white;
+  color: var(--textcolor);
   /* Round button background gradient */
-  background: linear-gradient(black,#550000,black); 
-  border-color: grey !important;
-  border:1px outset grey !important;
+  background: linear-gradient(var(--gradientcolor),var(--alternatedbackground),var(--gradientcolor2)); 
+  border-color: var(--alternatedbackground) !important;
+  border:1px outset var(--alternatedbackground) !important;
   border-radius: 3px 2px 2px 3px;
 }
 
@@ -318,19 +281,19 @@ h1
 
 body   
 {
-    background: black;
-    background-color: black;
+    background: var(--bgcolor);
+    background-color: var(--bgcolor);
     font-size: .80em;
     font-family: "Helvetica Neue", "Lucida Grande", "Segoe UI", Arial, Helvetica, Verdana, sans-serif;
     margin: 0px;
     padding: 0px;
-    color: white;
+    color: var(--textcolor);
     
 }
 
 .progress_unfill{
 
-    background-color:grey;
+    background-color:var(--alternatedbackground);
 }
 
 .progress_fill
@@ -341,8 +304,8 @@ body
 select 
 {
    border-radius: 3px 3px 3px 3px;
-   color: white;
-   background-color: black;
+   color: var(--textcolor);
+   background-color: var(--bgcolor);
    border:1px outset green !important;
    border-radius: 3px 2px 2px 3px;
 }
@@ -351,8 +314,8 @@ select
 input[type=text], textarea
 {
    border-radius: 3px 3px 3px 3px;
-   color: white;
-   background-color: black;
+   color: var(--textcolor);
+   background-color: var(--bgcolor);
    border:1px outset green;
 }
 
@@ -363,8 +326,8 @@ input
 {
 	border: 1px solid;
 	xbackground: -webkit-gradient(linear, 60% 100%, 88% 100%, from(<BACKGROUND_TEXTBOX_COLOR>), to(<BACKGROUND_TEXTBOX_COLOR2>));
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 }
 
 .reado
@@ -378,8 +341,8 @@ input
 
 .inputfile
 {
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 
     width: 110.1px;
     height: 110.1px;
@@ -393,8 +356,8 @@ input
 .inputfile + label {
     font-size: 1.25em;
     font-weight: 700;
-    color: white;
-    background-color: black;
+    color: var(--textcolor);
+    background-color: var(--bgcolor);
     display: inline-block;
 }
 
@@ -409,8 +372,8 @@ input:valid
 {
 	border: 1px solid;
 	xbackground: -webkit-gradient(linear, 60% 100%, 88% 100%, from(<BACKGROUND_TEXTBOX_COLOR>), to(<BACKGROUND_TEXTBOX_COLOR2>));
-	color: white;
-	background-color: black;
+	color: var(--textcolor);
+	background-color: var(--bgcolor);
 }
 
 
@@ -547,7 +510,7 @@ input:valid {  border: 1px solid green;}
   -moz-border-radius: 5px 0 0 5px;
   -webkit-border-radius: 5px 0 0 5px;
   background-color: grey;
-  background-color: black;
+  background-color: var(--bgcolor);
   background-repeat: repeat-x;
   width: 200px;
 }
@@ -561,21 +524,21 @@ input:valid {  border: 1px solid green;}
 #cssmenu a 
 {
   background-color: grey;
-  background-color: black;
+  background-color: var(--bgcolor);
   #main image here;
   
+  /*background: linear-gradient(var(--bgcolor),var(--midcolor,blue),var(--bgcolor)); */
   /* Primary Mast Left Menu Colors */
     
-    background-backup: linear-gradient(#223322,#121112,black);  
+    background-backup: linear-gradient(#223322,#121112,var(--bgcolor));  
     
     background: linear-gradient(white,lightgrey,white);    
-    background: linear-gradient(black,#010000,#210000);  
-    background: linear-gradient(#223322,#121112,black);  
+    background: linear-gradient(var(--leftcolor),var(--midcolor,blue),var(--bgcolor));  
     
   
   
   background-repeat: repeat-x;
-  color: white;
+  color: var(--textcolor);
   display: block;
   font-family: Helvetica, Arial, Verdana, sans-serif;
   font-size: 12px;
@@ -608,9 +571,7 @@ input:valid {  border: 1px solid green;}
   border-bottom: 10px solid transparent;
   #border right 2-14-2017
   xborder-right: 10px solid #e00f16;
-  xborder-right: 10px solid lightblue;
   border-right: 10px solid lightblue;
-  
 
   margin-top: -10px;
 }
@@ -630,7 +591,7 @@ input:valid {  border: 1px solid green;}
   -webkit-box-shadow: inset 0 0 3px 141414;
   background-color: #black;
   
-  background-color: grey;
+  background-color: var(--alternatedbackground);
   
   background-repeat: repeat-x;
 }
@@ -639,7 +600,7 @@ input:valid {  border: 1px solid green;}
   /* Leftmost Mast of Menu (primary menu hover color:green) */
   
   background: linear-gradient(black,lightgrey,white);
-  background: linear-gradient(black, #550000,black); 
+  background: linear-gradient(var(--bgcolor), var(--midcolor,blue),var(--bgcolor)); 
   -moz-box-shadow: inset 0 0 3px 141414;
   -webkit-box-shadow: inset 0 0 3px 141414;
 }
@@ -649,13 +610,14 @@ input:valid {  border: 1px solid green;}
 #cssmenu .has-sub:hover > ul {
   display: block;
   background: linear-gradient(black,lightgrey,white);
-  background: linear-gradient(black,#550000,black); 
+  background: linear-gradient(var(--bgcolor),var(--midcolor,blue),var(--bgcolor)); 
+
 }
 #cssmenu .has-sub ul {
   display: none;
   position: absolute;
   width: 150px;
-  top:7px;
+  top: 5px;
   left: 100%;
 }
 #cssmenu .has-sub ul li {
@@ -671,9 +633,8 @@ input:valid {  border: 1px solid green;}
   padding: 10px;
 }
 #cssmenu .has-sub ul li:hover a {
-  background: white;
-  background: grey;
-  top:-20%;
+background: white;
+  background: var(--alternatedbackground);
 }
 
 #cssmenu .has-sub .has-sub:hover > ul {
@@ -691,7 +652,6 @@ input:valid {  border: 1px solid green;}
 }
 #cssmenu .has-sub .has-sub ul li a:hover {
   background: 141414;
-  top:-20%;
 }
 
 
@@ -1256,12 +1216,12 @@ input:valid {  border: 1px solid green;}
 {
     display:inline;
     color:yellow;
-    background:black;
+    background:var(--bgcolor);
     color:pink;
     margin-bottom:15px;
     padding-bottom:3px;
     padding-left:5px;
-    background-color:black;
+    background-color:var(--bgcolor);
     xborder: solid 1px green;
     xopacity:.50;
 }
@@ -1326,7 +1286,5 @@ input:valid {  border: 1px solid green;}
   background-color: #595959;
 }
 
-#loadOverlay {
-    display: none;
-}
+
 /* END OF SQUARED ONE */

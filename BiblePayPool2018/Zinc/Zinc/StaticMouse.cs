@@ -180,6 +180,7 @@ namespace Zinc
             public bool dpv_active;
             public double BBPPrice;
             public double BTCPrice;
+            public double BBPSatoshi;
             public double ROI;
             public double CPMPer10k;
             public double RPMPer10k;
@@ -210,11 +211,14 @@ namespace Zinc
                         {
 
                         }
-                        mo.message += sSU;
+                        mo.message += sSU + ";";
                     }
                 }
             }
-
+            if (o["message"] != null)
+            {
+                mo.message += o["message"].ToString() + ";";
+            }
             try
             {
                 string carrier = (o["tracking"][0]["carrier"]).ToString();
@@ -335,43 +339,6 @@ namespace Zinc
 
         }
 
-        public MouseOutput GetCryptoPrice(string sTicker)
-        {
-            String sURL = "https://c-cex.com/t/" + sTicker + "-btc.json";
-            MyMouseClient mc = new MyMouseClient();
-            try
-            {
-                string sOut = mc.DownloadString(sURL);
-                dynamic oCryptoPrice = JsonConvert.DeserializeObject(sOut);
-                MouseOutput o = new MouseOutput();
-                o.mouse_object = oCryptoPrice;
-                double dPrice1 = Convert.ToDouble(GetJsonValue(oCryptoPrice["ticker"], "avg"));
-                //Get BTC
-                sURL = "https://c-cex.com/t/btc-usd.json";
-                sOut = mc.DownloadString(sURL);
-                dynamic oBTCPrice = JsonConvert.DeserializeObject(sOut);
-                double dBTCPrice = Convert.ToDouble(GetJsonValue(oBTCPrice["ticker"], "avg"));
-                double dUSDPrice = dBTCPrice * dPrice1;
-                o.price = dPrice1;
-                o.BBPPrice = dUSDPrice;
-                o.BTCPrice = dBTCPrice;
-                double dCPMPer10k = 18.51;
-                double dRPMPer10k = 10000 * o.price;
-                double ROI = (dRPMPer10k / (dCPMPer10k + .01)) * 100;
-                o.ROI = Math.Round(ROI, 2);
-                o.CPMPer10k = dCPMPer10k;
-                o.RPMPer10k = dRPMPer10k;
-                return o;
-            }
-            catch(Exception ex)
-            {
-                MouseOutput o = new MouseOutput();
-                o.BTCPrice = 0;
-                o.BBPPrice = 0;
-                return o;
-            }
-        }
-
         public string CreateOrder(string sOrderGuid, string retailer, Product[] products, double max_price,
                bool is_gift, string gift_message,
                shipping_address shippi_addr, shipping shipping1, payment_method pm1, billing_address ba1,
@@ -445,15 +412,9 @@ namespace Zinc
 
     public class StaticMouse
     {
-
-
-     
-
-
     }
 
-
-
+    
     public class MyMouseClient : System.Net.WebClient
     {
         public string Token = "";

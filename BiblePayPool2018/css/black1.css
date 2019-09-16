@@ -528,11 +528,10 @@ input:valid {  border: 1px solid green;}
     
     background-backup: linear-gradient(#223322,#121112,black);  
     
-    background: linear-gradient(white,lightgrey,white);    
-    background: linear-gradient(black,#550000,#110000);  
+    background-1: linear-gradient(white,lightgrey,white);    
+    background-2: linear-gradient(black,#550000,#110000);  
+    background: linear-gradient(#223322,#121112,black);  
     
-  
-  
   background-repeat: repeat-x;
   color: white;
   display: block;

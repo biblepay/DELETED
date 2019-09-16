@@ -9,7 +9,7 @@
     <ProjectView>ShowAllFiles</ProjectView>
     <UseGlobalApplicationHostFile />
     <Use64BitIISExpress />
-    <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
+    <LastActiveSolutionConfig>Release|Any CPU</LastActiveSolutionConfig>
   </PropertyGroup>
   <ProjectExtensions>
     <VisualStudio>

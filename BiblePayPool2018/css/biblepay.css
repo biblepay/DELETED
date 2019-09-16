@@ -277,6 +277,67 @@ h1
 
 
 
+
+
+.scrolly {
+    overflow-y: scroll;
+    /*xheight:600px;*/
+}
+
+.Head1Invisible 
+{
+	xvisibility:hidden;
+	height:1px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.xdivBodyScroll
+{
+	height:500px;
+	xoverflow-y:scroll;
+	xdisplay:block;
+	xtable-layout:fixed;
+}
+
+
+
+.xtableBodyScroll tbody 
+{
+  display: block;
+  max-height: 300px;
+  overflow-y: scroll;
+}
+
+.xtableBodyScroll thead tbody tr 
+{
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+
+
+
+
+
+
+
+
 body   
 {
     background: #3a0000;
@@ -286,7 +347,6 @@ body
     margin: 0px;
     padding: 0px;
     color: gold;
-    
 }
 
 .progress_unfill{
@@ -1284,5 +1344,7 @@ background: white;
   background-color: #595959;
 }
 
-
+#loadOverlay {
+    display: none;
+}
 /* END OF SQUARED ONE */

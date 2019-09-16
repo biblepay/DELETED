@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -13,7 +13,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BiblePayPool2018</RootNamespace>
     <AssemblyName>BiblePayPool2018</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
     <UseIISExpress>false</UseIISExpress>
     <IISExpressSSLPort />
     <IISExpressAnonymousAuthentication />
@@ -33,24 +33,25 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\</OutputPath>
+    <OutputPath>..\..\..\..\PoolBinaries\Debug\</OutputPath>
+    <IntermediateOutputPath>..\..\..\..\PoolBinaries\DebugObj\</IntermediateOutputPath> 
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\</OutputPath>
+    <OutputPath>..\..\..\..\PoolBinaries\Release\</OutputPath>
+    <IntermediateOutputPath>..\..\..\..\PoolBinaries\ReleaseObj\</IntermediateOutputPath> 
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Bitnet.Client">
-      <HintPath>Dependencies\Bitnet.Client.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.Office.Interop.Excel, Version=14.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
       <EmbedInteropTypes>True</EmbedInteropTypes>
@@ -80,7 +81,7 @@
       <HintPath>..\..\..\..\Program Files\Microsoft SQL Server\120\SDK\Assemblies\Microsoft.SqlServer.SqlEnum.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
-    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -94,9 +95,10 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Web.Services" />
@@ -141,14 +143,16 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BaseHandler.cs" />
-    <Compile Include="clsDeprecated.cs" />
-    <Compile Include="clsStaticHelper.cs" />
-    <Compile Include="DatabaseOperations.cs" />
-    <Compile Include="Dialog.cs" />
-    <Compile Include="Document.cs" />
-    <Compile Include="Admin.cs" />
-    <Compile Include="Home.cs" />
+    <Compile Include="Code\BaseHandler.cs" />
+    <Compile Include="Code\BiblePayUniv.cs" />
+    <Compile Include="Code\Charts.cs" />
+    <Compile Include="Code\clsDeprecated.cs" />
+    <Compile Include="Code\clsStaticHelper.cs" />
+    <Compile Include="Code\DatabaseOperations.cs" />
+    <Compile Include="Code\Dialog.cs" />
+    <Compile Include="Code\Document.cs" />
+    <Compile Include="Code\Admin.cs" />
+    <Compile Include="Code\Home.cs" />
     <Compile Include="ipfs.aspx.cs">
       <DependentUpon>ipfs.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -156,11 +160,11 @@
     <Compile Include="ipfs.aspx.designer.cs">
       <DependentUpon>ipfs.aspx</DependentUpon>
     </Compile>
-    <Compile Include="Login.cs" />
-    <Compile Include="Picture.cs" />
-    <Compile Include="SQLDetective.cs" />
-    <Compile Include="Ticket.cs" />
-    <Compile Include="Sys.cs" />
+    <Compile Include="Code\Login.cs" />
+    <Compile Include="Code\Picture.cs" />
+    <Compile Include="Code\SQLDetective.cs" />
+    <Compile Include="Code\Ticket.cs" />
+    <Compile Include="Code\Sys.cs" />
     <Compile Include="Download.aspx.cs">
       <DependentUpon>Download.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
@@ -169,7 +173,7 @@
       <DependentUpon>Download.aspx</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Section.cs" />
+    <Compile Include="Code\Section.cs" />
     <Compile Include="Uploader.ashx.cs">
       <DependentUpon>Uploader.ashx</DependentUpon>
     </Compile>
@@ -197,6 +201,14 @@
     <Folder Include="uploads\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="bitnet\Bitnet.Client\Bitnet.Client.csproj">
+      <Project>{90d3e431-02df-432f-9f09-ed6e934bacd2}</Project>
+      <Name>Bitnet.Client</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\code\WalmartAPI\WalmartAPI\WalmartAPI\WalmartAPI.csproj">
+      <Project>{98cde812-8568-4314-9b34-605e86d4eff2}</Project>
+      <Name>WalmartAPI</Name>
+    </ProjectReference>
     <ProjectReference Include="USGDFramework\USGDFramework\USGDFramework.csproj">
       <Project>{09a0bbe1-5ea1-44cf-931a-f93d877736c6}</Project>
       <Name>USGDFramework</Name>
