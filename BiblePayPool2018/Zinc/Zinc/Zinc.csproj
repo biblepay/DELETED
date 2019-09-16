@@ -20,7 +20,6 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
     <OutputPath>..\..\..\..\PoolBinaries\Debug\</OutputPath>
     <IntermediateOutputPath>..\..\..\..\PoolBinaries\DebugObj\</IntermediateOutputPath> 
     <DefineConstants>DEBUG;TRACE</DefineConstants>

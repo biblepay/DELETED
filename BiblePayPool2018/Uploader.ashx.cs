@@ -29,15 +29,10 @@ namespace BiblePayPool2018
                 string sMsg = ex.Message;
             }
         }
-
-
-
+        
         public void ProcessRequest(HttpContext context)
         {
-            // Get System Object
-            // 10-4-2018
-            Log1("Saving picture1");
-
+            
             if (context.Session["Sys"] == null)
             {
 

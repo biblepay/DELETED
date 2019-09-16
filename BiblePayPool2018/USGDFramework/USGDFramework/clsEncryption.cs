@@ -31,6 +31,7 @@ namespace USGDFramework
                 return "";
             }
         }
+
         public static string FromBase64(string data)
         {
             try
@@ -42,6 +43,7 @@ namespace USGDFramework
                 return "";
             }
         }
+
         public static string ByteArrayToHexString(byte[] ba)
         {
             StringBuilder hex = default(StringBuilder);
@@ -107,9 +109,7 @@ namespace USGDFramework
             decStream.FlushFinalBlock();
             return System.Text.Encoding.Unicode.GetString(ms.ToArray());
         }
-
-
-
+        
         public static string GetBibleFolder()
         {
             string sTemp = null;

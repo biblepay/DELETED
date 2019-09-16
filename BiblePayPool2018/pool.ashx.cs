@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Web;
+using static USGDFramework.Shared;
 
 
 namespace BiblePayPool2018
@@ -45,13 +47,72 @@ namespace BiblePayPool2018
              return lLV;
         }
 
+        string CaseReplace(string data, string Search, string ReplaceWith)
+        {
+            string result = Regex.Replace(data, Search, ReplaceWith, RegexOptions.IgnoreCase);
+            return result;
+        }
+
+        public string PenTest(string sPostData, string sUserId, string sUserName)
+        {
+            string sTemp = sPostData.ToUpper();
+            string sTrimmed = sTemp.Replace(" ", "");
+            
+            bool bDirty = (sTemp.Contains("SELECT ") && sTemp.Contains(" FROM ")) || 
+                sTemp.Contains("INSERT") || sTemp.Contains("UPDATE") || sTemp.Contains("DELETE") ||
+                sTrimmed.Contains("DROPTABLE") || sTemp.Contains("EXEC");
+            if (bDirty)
+            {
+                USGDFramework.Shared.LogSQLI(sUserId+"-"+sUserName+": " + sPostData);
+                // modify the reserved words
+                sPostData = CaseReplace(sPostData, "SELECT", "SLC");
+                sPostData = CaseReplace(sPostData, "INSERT", "INZ");
+
+                sPostData = CaseReplace(sPostData, "'", "[singlequote]");
+                sPostData = CaseReplace(sPostData, "UPDATE", "UDD");
+
+                sPostData = CaseReplace(sPostData, "DELETE", "DLL");
+                sPostData = CaseReplace(sPostData, "DROP", "DRP");
+                sPostData = CaseReplace(sPostData, "EXEC", "EXC");
+                sPostData = CaseReplace(sPostData, "--", "[hyphen hyphen]");
+                
+            }
+
+            return sPostData;
+        }
+
+        public static void Log2(string sData)
+        {
+            try
+            {
+                string sPath = null;
+                string sDocRoot = USGDFramework.clsStaticHelper.GetConfig("LogPath");
+                sPath = sDocRoot + "concentration.dat";
+                System.IO.StreamWriter sw = new System.IO.StreamWriter(sPath, true);
+                string Timestamp = DateTime.Now.ToString();
+                sw.WriteLine(Timestamp + ", " + sData);
+                sw.Close();
+            }
+            catch (Exception ex)
+            {
+                string sMsg = ex.Message;
+                Log(sMsg + "-" + sData);
+            }
+        }
+
         public override void HandleRequest(System.Web.HttpContext context)
         {
+            SystemObject Sys = (SystemObject)HttpContext.Current.Session["Sys"];
+            // PENTEST POINT 10-10-2018 - concentration point
 
             // Deserialize the strongly typed javascript object back to c# object
+            Log2(sPostData);
+
+            sPostData = PenTest(sPostData, (Sys.UserGuid ?? "").ToString(), (Sys.Username ?? "").ToString());
+
             WebObj g = new WebObj();
             g = JsonConvert.DeserializeObject<WebObj>(sPostData);
-            SystemObject Sys = (SystemObject)HttpContext.Current.Session["Sys"];
+            
             if (g.action == "postdiv" || g.action=="formload")
             {
                 // Now we store the uploaded values on the business objects
@@ -83,7 +144,7 @@ namespace BiblePayPool2018
                         string sSection = Sys.ExtractXML(sPost, "[DROPPABLE]", "[/DROPPABLE]");
                         string sLastCoord = "";
                         string sCurrCoord = "";
-                        string sql = "Select * FROM SECTION WHERE Name='" + clsStaticHelper.PurifySQL(sSection,100)
+                        string sql = "Select * FROM SECTION WHERE Name='" + PurifySQL(sSection,100)
                             + "' and deleted=0";
                         DataTable dt2 = Sys._data.GetDataTable2(sql);
                         string sSectionGuid = dt2.Rows[0]["id"].ToString();
@@ -152,8 +213,8 @@ namespace BiblePayPool2018
                         if (!bFail)
                         {
                             sCols = sCols.Substring(0, sCols.Length - 1);
-                            string sSql = "Update Section set Fields='" + clsStaticHelper.PurifySQL(sCols,1000)
-                                + "' where id = '" + clsStaticHelper.GuidOnly(sSectionGuid) + "'";
+                            string sSql = "Update Section set Fields='" + PurifySQL(sCols,1000)
+                                + "' where id = '" + GuidOnly(sSectionGuid) + "'";
                             Sys._data.Exec2(sSql);
                         }
                     }
@@ -195,6 +256,7 @@ namespace BiblePayPool2018
                 {
                     //Raise the event in the class, then return with some data.
                     Sys.LastWebObject = g;
+                    
                     var type1 = Type.GetType(g.classname);
                     if (type1 == null)
                     {
@@ -263,8 +325,7 @@ namespace BiblePayPool2018
                     }
                     try
                     {
-                        bool bDAHF = (HttpContext.Current.Request.Url.ToString().ToUpper().Contains("DAHF"));
-
+                        
                         //Store the event information in Sys, so the receiver can access it (before invoking):
                         if (Sys.Organization.ToString() == "00000000-0000-0000-0000-000000000000" && g.classname != "BiblePayPool2018.Login")
                         {
@@ -278,15 +339,10 @@ namespace BiblePayPool2018
                             {
                                 Login l = new Login(Sys);
                                 // Harness point 09252018
-                                bool bAuth = l.VerifyUser("guest", "guest", ref Sys, false);
+                                bool bAuth = l.VerifyUser("guest", USGDFramework.clsStaticHelper.GetConfig("guestpassword"), ref Sys, false);
                                 // Start at the expense View Page when coming in from the Wallet accountability button
                                 g.classname = "BiblePayPool2018.Home";
                                 g.methodname = "ExpenseList";
-                            }
-                            else if (bDAHF)
-                            {
-                                g.classname = "BiblePayPool2018.Home";
-                                g.methodname = "DAHFLinkList";
                             }
                             g.classname = "BiblePayPool2018.Login";
                             g.methodname = "LoginSection";
@@ -297,11 +353,6 @@ namespace BiblePayPool2018
                             // Redirect to Login Page
                             g.classname = "BiblePayPool2018.Login";
                             g.methodname = "LoginSection";
-                        }
-                        if (Sys.DAHF==0 && bDAHF)
-                        {
-                            //g.classname = "BiblePayPool2018.Login";
-                           // g.methodname = "LoginSection";
                         }
                         // RAISE EVENT INTO PROGRAM
 

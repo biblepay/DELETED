@@ -124,6 +124,29 @@ namespace USGDFramework
             }
 
         }
+
+        private static int MAX_DB_RETRIES = 5;
+        public void SureExec(string sql, bool bLog = true, bool bLogError = true)
+        {
+            for (int i = 0; i < MAX_DB_RETRIES; i++)
+            {
+                try
+                {
+                    using (SqlConnection con = new SqlConnection(sSQLConn()))
+                    {
+                        con.Open();
+                        SqlCommand myCommand = new SqlCommand(sql, con);
+                        myCommand.ExecuteNonQuery();
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (bLogError) Log("sure EXEC: " + sql + "," + ex.Message);
+                }
+            }
+        }
+
         public void Exec2(string sql, bool bLog=true, bool bLogError = true)
         {
             try
@@ -151,7 +174,8 @@ namespace USGDFramework
                     return;
                 }
                 
-                if (bLogError)                 Log(" EXEC: " + sql + "," + ex.Message);
+                if (bLogError)
+                    Log(" EXEC: " + sql + "," + ex.Message);
             }
 
         }
@@ -159,7 +183,6 @@ namespace USGDFramework
 	    {
             try
             {
-                TxLog(sql);
                 using (SqlConnection con = new SqlConnection(sSQLConn()))
                 {
                     con.Open();
@@ -341,8 +364,7 @@ namespace USGDFramework
                     con.Open();
                     using (SqlCommand cmd = new SqlCommand(sql, con))
                     {
-                        //cmd.CommandTimeout = 6000;
-
+                        
                         SqlDataReader dr = cmd.ExecuteReader();
                         if (!dr.HasRows | dr.FieldCount == 0) return string.Empty;
                         while (dr.Read())
@@ -460,15 +482,10 @@ namespace USGDFramework
         {
             // Depending on context, filter the menu
             bool bAcc = (sURL1.ToUpper().Contains("ACCOUNTABILITY"));
-            bool bDAHF = (sURL1.ToUpper().Contains("DAHF"));
-
-            string sWhere = bAcc ? " where Accountability=1 and DAHF <> 1" : " where DAHF <> 1";
-            if (bDAHF) sWhere = " where DAHF=1";
-
+            string sWhere = " where Accountability=1 and DAHF <> 1";
             string sql = "select * from menu " + sWhere + " order by hierarchy, ordinal";
             string sUser = USGDFramework.clsStaticHelper.GetConfig("DatabaseName");
-            
-            DataTable dt = GetDataTable2(sql);
+            DataTable dt = GetDataTable2(sql,false);
             string sOut = "<div id='cssmenu'> <UL> ";
             string[] vHierarchy = null;
             string sArgs = null;
